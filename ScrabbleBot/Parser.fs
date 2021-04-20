@@ -3,11 +3,17 @@
 
 module internal Parser
 
-    open ScrabbleUtil // NEW. KEEP THIS LINE.
-    open System
     open Eval
-    open FParsecLight.TextParser     // Industrial parser-combinator library. Use for Scrabble Project.
 
+    (*
+
+    The interfaces for JParsec and FParsecLight are identical and the implementations should always produce the same output
+    for successful parses although running times and error messages will differ. Please report any inconsistencies.
+
+    *)
+
+    // open JParsec.TextParser             // Example parser combinator library. Use for CodeJudge.
+    open FParsecLight.TextParser     // Industrial parser-combinator library. Use for Scrabble Project.
 
     let pIntToChar  = pstring "intToChar"
     let pPointValue = pstring "pointValue"
@@ -138,32 +144,45 @@ module internal Parser
 
     let stmntParse = SSeqTermParse
 
-    (* These five types will move out of this file once you start working on the project *)
+(* These five types will move out of this file once you start working on the project *)
     type coord      = int * int
     type squareProg = Map<int, string>
     type boardProg  = {
-        prog       : string;
-        squares    : Map<int, squareProg>
-        usedSquare : int
-        center     : coord
+            prog       : string;
+            squares    : Map<int, squareProg>
+            usedSquare : int
+            center     : coord
 
-        isInfinite : bool   // For pretty-printing purposes only
-        ppSquare   : string // For pretty-printing purposes only
-    }
+            isInfinite : bool   // For pretty-printing purposes only
+            ppSquare   : string // For pretty-printing purposes only
+        }
 
     type word   = (char * int) list
     type square = Map<int, word -> int -> int -> int>
 
-    let parseSquareFun _ = failwith "not implemented"
-
-    let parseBoardFun _ = failwith "not implemented"
+    let parseSquareFun (sqp : squareProg) : square =
+        Map.map(fun _ v -> run stmntParse v |> getSuccess |> stmntToSquareFun) sqp
 
     type boardFun = coord -> square option
+
+    let parseBoardFun s m =
+        ((run stmntParse s)
+            |> getSuccess
+            |> stmntToBoardFun
+        ) m
+
     type board = {
-    center        : coord
-    defaultSquare : square
-    squares       : boardFun
+        center        : coord
+        defaultSquare : square
+        squares       : boardFun
     }
 
-    let parseBoardProg (bp : boardProg) = failwith "not implemented"
+    let parseBoardProg (bp : boardProg) : board =
+        let parsedProgs = Map.map (fun i v -> parseSquareFun v) bp.squares
+
+        {
+            center = bp.center;
+            defaultSquare =  parsedProgs.[bp.usedSquare];
+            squares = parseBoardFun bp.prog parsedProgs;
+        }
 
