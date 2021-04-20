@@ -105,6 +105,7 @@ module internal MultiSet
             | (x::xs, []) -> go xs [] (add (fst x) (snd x) acc)
             | (x::xs, y::ys) when x >= y -> go xs ys (add (fst x) (snd x) acc)
             | (x::xs, y::ys) when x < y -> go xs ys (add (fst y) (snd y) acc)
+            | _ -> failwith "not sure what went wrong"
         go (Map.toList m) (Map.toList _m) empty
 
     let sum (S (m)) (S (_m)) =
@@ -127,4 +128,6 @@ module internal MultiSet
             | (x::xs, []) -> acc
             | (x::xs, y::ys) when x <= y -> go xs ys (add (fst x) (snd x) acc)
             | (x::xs, y::ys) when x > y -> go xs ys (add (fst y) (snd y) acc)
+            | _ -> failwith "not sure what went wrong"
+
         go (Map.toList m) (Map.toList _m) empty
