@@ -54,8 +54,8 @@ let main argv =
                             Dictionary.empty
                             Dictionary.insert
                             Dictionary.step
-//                            (Some Dictionary.reverse) // Use if you have implemented a Gaddag
-                            None                        // Use if you have not implemented a Gaddag
+                            (Some Dictionary.reverse) // Use if you have implemented a Gaddag
+//                            None                        // Use if you have not implemented a Gaddag
                             words)
 
     do ScrabbleServer.Comm.startGame 
