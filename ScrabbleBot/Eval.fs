@@ -262,36 +262,40 @@ module internal Eval
 (* Part 4 *)
 
     type word = (char * int) list
-    type squareFun = word -> int -> int -> Result<int, Error>
+    type squareFun = word -> int -> int -> int
 
     let stmntToSquareFun stm =
-        let sqf w pos acc =
+        let sqf (w : word) pos acc =
             let s = mkState [("_pos_", pos); ("_acc_", acc); ("_result_", 0);] w ["_pos_"; "_acc_"; "_result_";]
             let sm = stmntEval stm >>>= arithEval (V "_result_") >>= fun b -> ret b
-            evalSM s sm
+            match (evalSM s sm) with
+                | Success(x) -> x
+                | Failure(_) -> 0
         sqf
 
     type coord = int * int
 
-    type boardFun = coord -> Result<squareFun option, Error>
+    // type boardFun = coord -> Result<squareFun option, Error>
 
     let stmntToBoardFun stm m =
         let bdf (x, y) =
             let s = mkState [("_x_", x); ("_y_", y); ("_result_", 0)] [] ["_x_"; "_y_"; "_result_";]
             let sm = stmntEval stm >>>= lookup "_result_" >>= fun id -> ret (Map.tryFind id m)
-            evalSM s sm
+            match (evalSM s sm) with
+                | Success(x) -> x
+                | Failure(_) -> None
         bdf
 
-    type board = {
-        center        : coord
-        defaultSquare : squareFun
-        squares       : boardFun
-    }
+    // type board = {
+    //     center        : coord
+    //     defaultSquare : squareFun
+    //     squares       : boardFun
+    // }
 
-    let mkBoard c defaultSq boardStmnt ids =
-        let sqrs = List.map (fun a -> (fst a, stmntToSquareFun (snd a))) ids |> Map.ofList
-        {
-            center = c;
-            defaultSquare = (stmntToSquareFun defaultSq);
-            squares = (stmntToBoardFun boardStmnt sqrs);
-        }
+    // let mkBoard c defaultSq boardStmnt ids =
+    //     let sqrs = List.map (fun a -> (fst a, stmntToSquareFun (snd a))) ids |> Map.ofList
+    //     {
+    //         center = c;
+    //         defaultSquare = (stmntToSquareFun defaultSq);
+    //         squares = (stmntToBoardFun boardStmnt sqrs);
+    //     }

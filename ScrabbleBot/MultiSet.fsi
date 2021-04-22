@@ -2,7 +2,7 @@
 
 module internal MultiSet
 
-    type MultiSet<'a>
+    type MultiSet<'a when 'a : comparison>
 
     val empty : MultiSet<'a>
     val add   : 'a -> uint32 -> MultiSet<'a> -> MultiSet<'a>

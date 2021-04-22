@@ -177,7 +177,7 @@ module internal Parser
         squares       : boardFun
     }
 
-    let parseBoardProg (bp : boardProg) : board =
+    let parseBoardProg (bp : ScrabbleUtil.boardProg) : board =
         let parsedProgs = Map.map (fun i v -> parseSquareFun v) bp.squares
 
         {

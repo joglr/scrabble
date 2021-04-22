@@ -38,7 +38,7 @@ let main argv =
 //    let board      = ScrabbleUtil.HoleBoard.holeBoard ()
 //    let board      = ScrabbleUtil.InfiniteHoleBoard.infiniteHoleBoard ()
 
-    let words     = readLines "../../../Dictionaries/English.txt"
+    let words     = readLines "./Dictionaries/English.txt"
 
     let handSize   = 7u
     let timeout    = None
@@ -48,7 +48,8 @@ let main argv =
 
     let players = spawnMultiples "OxyphenButazone" Oxyphenbutazone.Scrabble.startGame 2
     // Uncomment this line to call your client
-    // let players    = [("Your name here", YourClientName.Scrabble.startGame)]
+    //let players    = [("JScrapelt", JScrapelt.Scrabble.startGame)]
+    
     let (dictionary, time) =
         time (fun () -> ScrabbleUtil.Dictionary.mkDict
                             Dictionary.empty
