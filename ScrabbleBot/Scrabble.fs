@@ -41,14 +41,17 @@ module State =
     // but it could, potentially, keep track of other useful
     // information, such as number of players, player turn, etc.
 
+    open BoardState
+
     type state = {
         board         : Parser.board
+        boardState    : BoardState
         dict          : ScrabbleUtil.Dictionary.Dict
         playerNumber  : uint32
         hand          : MultiSet.MultiSet<uint32>
     }
 
-    let mkState b d pn h = {board = b; dict = d;  playerNumber = pn; hand = h }
+    let mkState b d pn h = {board = b; boardState = BoardState.empty; dict = d;  playerNumber = pn; hand = h }
 
     let board st         = st.board
     let dict st          = st.dict
@@ -78,17 +81,23 @@ module Scrabble =
             | RCM (CMPlaySuccess(ms, points, newPieces)) ->
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
 
+                // Add played tiles to boardState
+                let updatedBoardState = BoardState.addTiles (st.boardState) (List.fold (fun l x -> ((fst (fst x), snd (fst x)), fst (snd x))::l) list.Empty ms)
+
                 // Remove used pieces
                 let updatedHand = List.fold (fun hand (_, (id, _tile)) -> MultiSet.removeSingle id hand) MultiSet.empty ms
-
                 // Add new pieces
                 let updatedHand = List.fold (fun hand (id, count) -> MultiSet.add id count hand) updatedHand newPieces
 
-                let st' = { st with hand = updatedHand }
+                let st' = { st with hand = updatedHand; boardState = updatedBoardState; }
                 aux st'
             | RCM (CMPlayed (pid, ms, points)) ->
                 (* Successful play by other player. Update your state *)
-                let st' = st // This state needs to be updated
+
+                // Add played tiles to boardState
+                let updatedBoardState = BoardState.addTiles (st.boardState) (List.fold (fun l x -> ((fst (fst x), snd (fst x)), fst (snd x))::l) list.Empty ms)
+
+                let st' = { st with boardState = updatedBoardState; }// This state needs to be updated
                 aux st'
             | RCM (CMPlayFailed (pid, ms)) ->
                 (* Failed play. Update your state *)
