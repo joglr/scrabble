@@ -67,13 +67,13 @@ module Scrabble =
 
         let rec aux (st : State.state) =
 
-            //Our logic
+            //Our turn check
             if (st.playerNumber = PlayersState.current st.playersState) then
                 // Generate and send a move, then recv result of the move
                 printfn "%i's turn" st.playerNumber
-            else 
-                // recv result of other players move
-                printfn "not %i's turn" st.playerNumber
+
+            // recv result of current turns move
+            printfn "not %i's turn" st.playerNumber
 
 
             Print.printHand pieces (State.hand st)
