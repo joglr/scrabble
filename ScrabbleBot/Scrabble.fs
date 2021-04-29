@@ -45,14 +45,13 @@ module State =
     // but it could, potentially, keep track of other useful
     // information, such as number of players, player turn, etc.
 
-    open BoardState
     open PlayersState
 
     type state =
         { board: Parser.board
           boardState: (coord * (uint32 * (char * int))) list
           playersState: PlayersState
-          dict: ScrabbleUtil.Dictionary.Dict
+          dict: Dictionary.Dict
           playerNumber: uint32
           hand: MultiSet.MultiSet<uint32> }
 
@@ -68,7 +67,7 @@ module State =
     let mkState b d pn pa pt h =
         { board = b
           boardState = List.empty<coord * (uint32 * (char * int))>
-          playersState = PlayersState.create pt pa
+          playersState = create pt pa
           dict = d
           playerNumber = pn
           hand = h }
@@ -79,7 +78,6 @@ module State =
     let hand st = st.hand
 
 module Scrabble =
-    open System.Threading
 
     let playGame cstream pieces (st: State.state) =
 
