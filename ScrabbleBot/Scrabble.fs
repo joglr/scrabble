@@ -150,7 +150,8 @@ module Scrabble =
 
                 let st' =
                     { st with
-                          boardState = updatedBoardState }
+                          boardState = updatedBoardState
+                          playersState = PlayersState.next st.playersState }
 
                 aux st'
             | RCM (CMPlayFailed (_pid, _ms)) ->
