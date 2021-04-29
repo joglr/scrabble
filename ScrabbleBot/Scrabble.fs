@@ -174,6 +174,7 @@ module Scrabble =
 
                 aux st'
 
+            | RCM (CMPlayFailed (_))
             | RCM (CMChange (_))
             | RCM (CMPassed (_))
             | RCM (CMTimeout (_)) ->
@@ -185,7 +186,6 @@ module Scrabble =
 
 
             | RCM (CMGameOver _) -> ()
-            | RCM a -> failwith (sprintf "not implmented: %A" a)
             | RGPE err ->
                 printfn "Gameplay Error:\n%A" err
                 aux st
