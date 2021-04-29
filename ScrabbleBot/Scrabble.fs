@@ -50,7 +50,7 @@ module State =
 
     type state =
         { board: Parser.board
-          boardState: BoardState
+          boardState: (coord * (uint32 * (char * int))) list
           playersState: PlayersState
           dict: ScrabbleUtil.Dictionary.Dict
           playerNumber: uint32
@@ -67,7 +67,7 @@ module State =
 
     let mkState b d pn pa pt h =
         { board = b
-          boardState = BoardState.empty
+          boardState = List.empty<coord * (uint32 * (char * int))>
           playersState = PlayersState.create pt pa
           dict = d
           playerNumber = pn
@@ -117,10 +117,7 @@ module Scrabble =
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
 
                 // Add played tiles to boardState
-                let updatedBoardState =
-                    BoardState.addTiles
-                        (st.boardState)
-                        (List.fold (fun l x -> ((fst (fst x), snd (fst x)), fst (snd x)) :: l) list.Empty ms)
+                let updatedBoardState = st.boardState @ ms
 
                 let mappedMs =
                     List.map (fun (_, (id, _tile)) -> (id, 1u)) ms
@@ -143,10 +140,7 @@ module Scrabble =
                 (* Successful play by other player. Update your state *)
 
                 // Add played tiles to boardState
-                let updatedBoardState =
-                    BoardState.addTiles
-                        (st.boardState)
-                        (List.fold (fun l x -> ((fst (fst x), snd (fst x)), fst (snd x)) :: l) list.Empty ms)
+                let updatedBoardState = st.boardState @ ms
 
                 let st' =
                     { st with
