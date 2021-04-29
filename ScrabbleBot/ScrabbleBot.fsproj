@@ -12,12 +12,13 @@
     <Description>Scrabble Bot for Functional Programming 2021</Description>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="BoardState.fsi" />
     <None Remove="C:\Users\Jesper\.nuget\packages\fsharp.core\5.0.1\contentFiles\any\netstandard2.0\FSharp.Core.xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BoardState.fsi" />
+    <Compile Include="PlayersState.fsi" />
+    <Compile Include="PlayersState.fs" />
     <Compile Include="BoardState.fs" />
+    <Compile Include="BoardState.fsi" />
     <Compile Include="MultiSet.fsi" />
     <Compile Include="MultiSet.fs" />
     <Compile Include="FParsecLight.fsi" />
