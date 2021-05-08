@@ -15,6 +15,13 @@
     <None Remove="C:\Users\Jesper\.nuget\packages\fsharp.core\5.0.1\contentFiles\any\netstandard2.0\FSharp.Core.xml" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="FParsec" Version="1.1.1" />
+    <PackageReference Include="ScrabbleServer" Version="1.0.7" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="5.0.1" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="PlayersState.fsi" />
     <Compile Include="PlayersState.fs" />
     <Compile Include="BoardState.fsi" />
@@ -30,12 +37,6 @@
     <Compile Include="Parser.fs" />
     <Compile Include="Scrabble.fsi" />
     <Compile Include="Scrabble.fs" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="FParsec" Version="1.1.1" />
-    <PackageReference Include="ScrabbleServer" Version="1.0.7" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="5.0.1" />
+    <Compile Include="Program.fs" />
   </ItemGroup>
 </Project>
