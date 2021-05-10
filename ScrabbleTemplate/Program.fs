@@ -42,7 +42,7 @@ let main argv =
     // let words = readLines "./Dictionaries/English.txt"
     let words = readLines "./Dictionaries/Short.txt"
 
-    let handSize = 7u
+    let handSize = 10u
     let timeout = None
     let tiles = ScrabbleUtil.English.tiles 1u
     let seed = None

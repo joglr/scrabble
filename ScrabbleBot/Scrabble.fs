@@ -105,11 +105,8 @@ module State =
                 hand
 
         let lefts = foldGenLefts partialWord listOfTiles s.dict []
-        //printfn "%A" (List.map (fun x -> idListToString s (List.rev(fst x))) lefts)
-        printfn ""
-        printfn ""
 
-        let rec genWord ((partialWord,(dict1,hand)) : (uint32 list * (Dictionary.Dict * uint32 list))) (acc : uint32 list) : uint32 list =
+        let rec genWord ((dict1,hand) : (Dictionary.Dict * uint32 list)) (acc : uint32 list) : uint32 list =
             List.fold
                 (fun acc t ->
                     let newHand = filterSingle (fun x -> x = t) hand
@@ -120,16 +117,15 @@ module State =
                             t::acc
                         else
                             // Partial word
-                            genWord (partialWord,(dict2,newHand)) (t::acc)
+                            genWord (dict2,newHand) (t::acc)
                     | None -> []
                 )
                 acc
                 hand
 
-        // List.map (fun l -> ((fst l), genWord l [])) lefts
         List.fold
             (fun acc l ->
-                match (genWord l []) with
+                match (genWord (snd l) []) with
                 | [] -> acc
                 | x -> (fst l, x)::acc
             ) [] lefts
@@ -220,7 +216,8 @@ module Scrabble =
                 let possibleWords =
                     State.generateMove st []
 
-                printfn "WORDS %A" (List.map (fun (l,r) -> (State.idListToString st (List.rev l),State.idListToString st r)) possibleWords)
+                let words = List.map (fun (l,r) -> (State.idListToString st (List.rev l),State.idListToString st r)) possibleWords
+                forcePrint ("WORDS: " + (string words))
 
 
                 let anchor = (0, 0)
@@ -241,9 +238,6 @@ module Scrabble =
                     let move = RegEx.parseMove input
                     debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
                     send cstream (SMPlay move)
-
-            // recv result of current turns move
-            printfn "%i's turn" st.playerNumber
 
             let msg = recv cstream
             debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) msg) // keep the debug lines. They are useful.
