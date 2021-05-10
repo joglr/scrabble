@@ -82,11 +82,6 @@ module State =
         | [] -> []
 
     let generateMove s (partialWord) =
-        // let rec handle
-        // let rec handleReversed
-
-        // 1. Start with one letter and hand
-        // 2.
 
         let listOfTiles = MultiSet.toList s.hand
 
@@ -98,17 +93,47 @@ module State =
                             let w = partialWord @ [ t ]
                             let newHand = filterSingle (fun x -> x = t) hand
                             match Dictionary.reverse dict2 with
-                            | Some(b,dict3) -> 
+                            | Some(b,dict3) ->
                                 // printfn "Found: %A" w
                                 foldGenLefts w newHand dict2 ((w,(dict3,newHand))::acc)
-                            | None -> 
+                            | None ->
                                 // printfn "Pword: %A" w
                                 foldGenLefts w newHand dict2 acc
-                        | None -> acc ) 
+                        | None -> acc
+                )
                 acc
                 hand
 
-        foldGenLefts partialWord listOfTiles s.dict []
+        let lefts = foldGenLefts partialWord listOfTiles s.dict []
+        //printfn "%A" (List.map (fun x -> idListToString s (List.rev(fst x))) lefts)
+        printfn ""
+        printfn ""
+
+        let rec genWord ((partialWord,(dict1,hand)) : (uint32 list * (Dictionary.Dict * uint32 list))) (acc : uint32 list) : uint32 list =
+            List.fold
+                (fun acc t ->
+                    let newHand = filterSingle (fun x -> x = t) hand
+                    match Dictionary.step (t |> (lookupTile s) |> fst) dict1 with
+                    | Some(b,dict2) ->
+                        if b then
+                            // Complete word
+                            t::acc
+                        else
+                            // Partial word
+                            genWord (partialWord,(dict2,newHand)) (t::acc)
+                    | None -> []
+                )
+                acc
+                hand
+
+        // List.map (fun l -> ((fst l), genWord l [])) lefts
+        List.fold
+            (fun acc l ->
+                match (genWord l []) with
+                | [] -> acc
+                | x -> (fst l, x)::acc
+            ) [] lefts
+
 
 
 
@@ -186,39 +211,39 @@ module Scrabble =
             //Our turn check
             if (st.playerNumber = PlayersState.current st.playersState) then
                 // Generate and send a move, then recv result of the move
-                printfn "%i's turn" st.playerNumber
+                // printfn "%i's turn" st.playerNumber
 
                 // forcePrint
                 //     "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
 
-                printfn "Generating move..."
-                let lefts =
+                // printfn "Generating move..."
+                let possibleWords =
                     State.generateMove st []
 
-                let words = (List.map (fun x -> State.idListToString st (List.rev(fst x))) lefts)
-                printfn "%A" words
-                
-                // let w =
-                //     match State.generateMove st [] with
-                //     | Some (w) -> State.idListToString st w
-                //     | None -> ""
+                printfn "WORDS %A" (List.map (fun (l,r) -> (State.idListToString st (List.rev l),State.idListToString st r)) possibleWords)
 
-                // printfn "Found maybe a word?"
-                // printfn "Word: %A" w
 
-                let input = System.Console.ReadLine()
-                let move = RegEx.parseMove input
+                let anchor = (0, 0)
+                let isRight = true
 
-                debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
-                send cstream (SMPlay move)
+                if st.boardState.IsEmpty then
+                    let word = (possibleWords.Head |> fst |> List.rev) @ (snd possibleWords.Head)
+                    let moves =
+                        List.mapi
+                            (fun i c ->
+                            let (char, point) = State.lookupTile st c
+                            let coord = if isRight then (fst anchor + i, snd anchor) else (fst anchor, snd anchor + i)
+                            (coord, (c, (char, point)))
+                        ) word
+                    send cstream (SMPlay (moves))
+                else
+                    let input = System.Console.ReadLine()
+                    let move = RegEx.parseMove input
+                    debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
+                    send cstream (SMPlay move)
 
             // recv result of current turns move
             printfn "%i's turn" st.playerNumber
-
-
-
-
-            // remove the force print when you move on from manual input (or when you have learnt the format)
 
             let msg = recv cstream
             debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) msg) // keep the debug lines. They are useful.
