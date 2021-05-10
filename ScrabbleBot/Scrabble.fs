@@ -90,33 +90,25 @@ module State =
 
         let listOfTiles = MultiSet.toList s.hand
 
-        // TODO: Handle is reversed
-        let rec move (partialWord: uint32 list) (handList: uint32 list) dict =
-            printfn "PartialWord: %s" (idListToString s partialWord)
+        let rec foldGenLefts (partialWord: uint32 list) (hand : uint32 list) dict1 acc =
+            List.fold
+                (fun acc t ->
+                    match Dictionary.step (t |> (lookupTile s) |> fst) dict1 with
+                        | Some(b,dict2) ->
+                            let w = partialWord @ [ t ]
+                            let newHand = filterSingle (fun x -> x = t) hand
+                            match Dictionary.reverse dict2 with
+                            | Some(b,dict3) -> 
+                                // printfn "Found: %A" w
+                                foldGenLefts w newHand dict2 ((w,(dict3,newHand))::acc)
+                            | None -> 
+                                // printfn "Pword: %A" w
+                                foldGenLefts w newHand dict2 acc
+                        | None -> acc ) 
+                acc
+                hand
 
-            let partialWords =
-                (List.map
-                    (fun t ->
-                        match Dictionary.step (t |> (lookupTile s) |> fst) dict with
-                        | Some ((hasMatch, dict)) ->
-                            match hasMatch with
-                            | true -> partialWord @ [ t ]
-                            | false ->
-                                let newHand = filterSingle (fun x -> x = t) handList
-                                move (partialWord @ [ t ]) newHand dict |> List.fold (@) []
-
-                        | _ -> [])
-                    handList)
-
-
-            printfn
-                "Hand:        %s"
-                ((List.map (fun x -> string (fst (lookupTile s x))) handList)
-                 |> List.fold (+) "")
-
-            partialWords
-
-        move partialWord listOfTiles s.dict
+        foldGenLefts partialWord listOfTiles s.dict []
 
 
 
@@ -200,12 +192,12 @@ module Scrabble =
                 //     "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
 
                 printfn "Generating move..."
-                let words =
+                let lefts =
                     State.generateMove st []
-                    |> List.map List.rev
-                    |> List.map (State.idListToString st)
 
+                let words = (List.map (fun x -> State.idListToString st (List.rev(fst x))) lefts)
                 printfn "%A" words
+                
                 // let w =
                 //     match State.generateMove st [] with
                 //     | Some (w) -> State.idListToString st w
