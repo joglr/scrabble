@@ -141,8 +141,19 @@ module State =
                     | [] -> acc
                     | x -> (fst l, x)::acc
                 ) [] lefts
-        forcePrint ("wholeWord: " + (string wholeWords.Length) + "\n")
-        List.filter (fun (l,r) -> lookup (idListToString s ((List.rev l) @ r)) s.dict) wholeWords
+        // forcePrint ("wholeWords: " + (string wholeWords.Length) + "\n")
+        let filteredWords =
+            List.filter
+                (fun (l,r) ->
+                    let word = idListToString s ((List.rev l) @ r)
+                    let isValidWord = lookup (word) s.dict
+                    // forcePrint(word + " is " + (if isValidWord then "valid" else "invalid") + "\n")
+                    isValidWord
+                )
+                wholeWords
+
+        // forcePrint ("Filtered: " + (string filteredWords.Length) + "\n")
+        filteredWords
 
 
     let generateMove s (l,r) (x,y) isRight =
@@ -298,13 +309,14 @@ module Scrabble =
                     let anchor = (0, 0)
                     let possibleWords = List.sortByDescending (fun w -> wordPoints st w) (State.generateWords st [] st.dict) |> Set.ofList
                     let words = Set.map (fun (l,r) -> (State.idListToString st (List.rev l),State.idListToString st r)) possibleWords
-                    forcePrint ("WORDS: " + (string words.Count) + " " + (string words))
+                    forcePrint ("WORDS: " + (string words.Count) + " " + (string words) + "\n")
                     if possibleWords.IsEmpty then
                         tilesToChange <- st.hand |> MultiSet.toTupleList
                         send cstream (SMChange (MultiSet.toList st.hand))
-                    let word = possibleWords.MinimumElement
-                    let move = State.generateMove st word anchor isRight
-                    send cstream (SMPlay (move))
+                    else
+                        let word = possibleWords.MinimumElement
+                        let move = State.generateMove st word anchor isRight
+                        send cstream (SMPlay (move))
                 else
                     let m =
                         List.fold
@@ -380,11 +392,6 @@ module Scrabble =
                           boardState = updatedBoardState
                           playersState = PlayersState.next st.playersState
                           legalTiles = updatedLegalTiles }
-
-                aux st'
-            | RCM (CMPlayFailed (_pid, _ms)) ->
-                (* Failed play. Update your state *)
-                let st' = st // TODO: This state needs to be updated
 
                 aux st'
 
