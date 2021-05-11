@@ -1,4 +1,4 @@
-﻿// Learn more about F# at http://fsharp.org
+// Learn more about F# at http://fsharp.org
 
 open System
 
@@ -39,8 +39,8 @@ let main argv =
     //    let board      = ScrabbleUtil.HoleBoard.holeBoard ()
 //    let board      = ScrabbleUtil.InfiniteHoleBoard.infiniteHoleBoard ()
 
-    // let words = readLines "./Dictionaries/English.txt"
     let words = readLines "./Dictionaries/English.txt"
+    // let words = readLines "./Dictionaries/Short.txt"
 
     let handSize = 10u
     let timeout = None
