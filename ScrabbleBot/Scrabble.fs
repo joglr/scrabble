@@ -292,6 +292,7 @@ module Scrabble =
                 // forcePrint
                 //     "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
                 
+                //TODO: fix else case, fix getting stuck on changing tiles
                 if st.boardState.IsEmpty then
                     let isRight = true
                     let anchor = (0, 0)
