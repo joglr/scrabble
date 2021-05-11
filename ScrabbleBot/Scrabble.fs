@@ -318,7 +318,7 @@ module Scrabble =
                         let move = State.generateMove st word anchor isRight
                         send cstream (SMPlay (move))
                 else
-                    let m =
+                    let movesByTiles =
                         List.fold
                             (fun acc t ->
                                 let steppedDict = Dictionary.step (t |> snd |> snd |> fst) st.dict
@@ -327,26 +327,30 @@ module Scrabble =
                                     let words = State.generateWords st [t |> snd |> fst] (snd steppedDict.Value)
                                     if words.Length = 0 then acc
                                     else
-                                        match List.sortByDescending (fun w -> wordPoints st w) (State.generateWords st [t |> snd |> fst] (snd steppedDict.Value)) with
+                                        match (State.generateWords st [t |> snd |> fst] (snd steppedDict.Value)) with
                                         | [] -> acc
                                         | x ->
-                                            ((fst t, false), x.Head) :: acc
-                                            // if checkMove st (fst t) x.Head false then Some ((fst t, false), x.Head)
-                                            // elif checkMove st (fst t) x.Head true then Some ((fst t, true), x.Head)
-                                            // else None
+                                            let moves =
+                                                List.fold  
+                                                    (fun acc m ->
+                                                        if checkMove st (fst t) m false then ((fst t, false), m)::acc
+                                                        elif checkMove st (fst t) m true then ((fst t, true), m)::acc
+                                                        else acc
+                                                    )
+                                                    [] x
+                                            moves :: acc
                             )
                             [] (Map.toList st.boardState)
 
-                    forcePrint ("MOVES: " + (string m.Length) + "\n")
-                    forcePrint (string m + "\n")
+                    let moves = (List.fold (@) [] movesByTiles) |> List.sortByDescending (fun w -> wordPoints st (snd w))
 
-                    let wordInfo = m.Head
+                    forcePrint ("MOVES: " + (string moves.Length) + "\n")
+                    forcePrint (string moves + "\n")
+
+                    let wordInfo = moves.Head
                     let word = snd wordInfo
                     forcePrint (string (State.idListToString st ((fst word |> List.rev) @ snd word)))
-                    let moveVert = checkMove st (wordInfo |> fst |> fst) (snd wordInfo) false
-                    let moveHoris = checkMove st (wordInfo |> fst |> fst) (snd wordInfo) true
-                    forcePrint ("MoveIsValidVert:" + (string moveVert) + "\n")
-                    forcePrint ("MoveIsValidHoris:" + (string moveHoris) + "\n")
+
                     let move = State.generateMove st ((fst word).Tail, snd word) (fst (fst wordInfo)) (snd (fst wordInfo))
                     send cstream (SMPlay (move))
 
