@@ -141,7 +141,7 @@ module State =
                     | [] -> acc
                     | x -> (fst l, x)::acc
                 ) [] lefts
-
+        forcePrint ("wholeWord: " + (string wholeWords.Length) + "\n")
         List.filter (fun (l,r) -> lookup (idListToString s ((List.rev l) @ r)) s.dict) wholeWords
 
 
@@ -285,7 +285,7 @@ module Scrabble =
             Print.printHand pieces (State.hand st)
             // Print.printLegalTiles st.legalTiles
 
-            let tilesToChange : (uint32 * uint32) list = []
+            let mutable tilesToChange : (uint32 * uint32) list = []
             //Our turn check
             if (st.playerNumber = PlayersState.current st.playersState) then
 
@@ -299,40 +299,41 @@ module Scrabble =
                     let possibleWords = List.sortByDescending (fun w -> wordPoints st w) (State.generateWords st [] st.dict) |> Set.ofList
                     let words = Set.map (fun (l,r) -> (State.idListToString st (List.rev l),State.idListToString st r)) possibleWords
                     forcePrint ("WORDS: " + (string words.Count) + " " + (string words))
-                    if possibleWords.IsEmpty then 
-                        let tilesToChange = st.hand
+                    if possibleWords.IsEmpty then
+                        tilesToChange <- st.hand |> MultiSet.toTupleList
                         send cstream (SMChange (MultiSet.toList st.hand))
                     let word = possibleWords.MinimumElement
                     let move = State.generateMove st word anchor isRight
                     send cstream (SMPlay (move))
                 else
                     let m =
-                        List.map
-                            (fun t ->
+                        List.fold
+                            (fun acc t ->
                                 let steppedDict = Dictionary.step (t |> snd |> snd |> fst) st.dict
-                                if steppedDict.IsNone then None
+                                if steppedDict.IsNone then acc
                                 else
                                     let words = State.generateWords st [t |> snd |> fst] (snd steppedDict.Value)
-                                    if words.Length = 0 then None
+                                    if words.Length = 0 then acc
                                     else
                                         match List.sortByDescending (fun w -> wordPoints st w) (State.generateWords st [t |> snd |> fst] (snd steppedDict.Value)) with
-                                        | [] -> None
+                                        | [] -> acc
                                         | x ->
-                                            Some ((fst t, false), x.Head)
+                                            ((fst t, false), x.Head) :: acc
                                             // if checkMove st (fst t) x.Head false then Some ((fst t, false), x.Head)
                                             // elif checkMove st (fst t) x.Head true then Some ((fst t, true), x.Head)
                                             // else None
                             )
-                            (Map.toList st.boardState)
-                    let moves = List.filter Option.isNone m
-                    forcePrint ("MOVES: " + (string moves.Length))
-                    forcePrint (string moves)
-                    forcePrint "<<<>>><<<>>>"
+                            [] (Map.toList st.boardState)
 
-                    let fm = List.filter (fun x -> Option.isSome x) m |> List.map (fun x -> x.Value)
+                    forcePrint ("MOVES: " + (string m.Length) + "\n")
+                    forcePrint (string m + "\n")
+
+                    let fm = m
                     let word = fm.Head
                     let move = checkMove st (word |> fst |> fst) (snd word) false
-                    forcePrint (string move)
+                    let moveHoris = checkMove st (word |> fst |> fst) (snd word) true
+                    forcePrint ("MoveIsValidVert:" + (string move) + "\n")
+                    forcePrint ("MoveIsValidHoris:" + (string moveHoris) + "\n")
                     // let move = State.generateMove st (snd word.Value) (fst (fst word.Value)) (snd (fst word.Value))
                     // send cstream (SMPlay (move))
 

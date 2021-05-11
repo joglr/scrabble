@@ -15,6 +15,7 @@
     val map : ('a -> 'b) -> MultiSet<'a> -> MultiSet<'b>
     val ofList : 'a list -> MultiSet<'a>
     val toList : MultiSet<'a> -> 'a list
+    val toTupleList : MultiSet<'a> -> ('a * uint32) list
     val union : MultiSet<'a> -> MultiSet<'a> -> MultiSet<'a>
     val sum : MultiSet<'a> -> MultiSet<'a> -> MultiSet<'a>
     val subtract : MultiSet<'a> -> MultiSet<'a> -> MultiSet<'a>
