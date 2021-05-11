@@ -166,6 +166,17 @@ module State =
 
     let updateBoardState (prev: Map<coord, (uint32 * (char * int))>) tiles =
         List.fold (fun acc next -> Map.add (fst next) (snd next) acc) prev tiles
+    
+    let lookup (s : string) (gdg : Dictionary.Dict) : bool =
+        let rec aux (cs : char list) (gd : Dictionary.Dict) = 
+            match Dictionary.step cs.Head gd with
+            | None      -> false
+            | Some(b,d) when cs.Length = 1 -> 
+                match Dictionary.reverse d with 
+                | None -> false
+                | Some(b,d) -> b
+            | Some(b,d) -> aux cs.Tail d
+        aux (List.rev (Seq.toList s)) gdg
 
     let mkState b d pn pa pt h t =
         { board = b
@@ -213,18 +224,15 @@ module Scrabble =
                 //     "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
 
                 // printfn "Generating move..."
-                let possibleWords =
-                    State.generateMove st []
-
-                let words = List.map (fun (l,r) -> (State.idListToString st (List.rev l),State.idListToString st r)) possibleWords
-                forcePrint ("WORDS: " + (string words))
-
-
-                let anchor = (0, 0)
-                let isRight = true
-
+                
                 if st.boardState.IsEmpty then
-                    let word = (possibleWords.Head |> fst |> List.rev) @ (snd possibleWords.Head)
+                    let isRight = true
+                    let anchor = (0, 0)
+                    let possibleWords = State.generateMove st []
+                    let filteredWords = List.filter (fun (l,r) -> State.lookup (State.idListToString st ((List.rev l) @ r)) st.dict) possibleWords
+                    let words = List.map (fun (l,r) -> (State.idListToString st (List.rev l),State.idListToString st r)) filteredWords
+                    forcePrint ("WORDS: " + (string words))
+                    let word = (filteredWords.Head |> fst |> List.rev) @ (snd filteredWords.Head)
                     let moves =
                         List.mapi
                             (fun i c ->
@@ -234,10 +242,9 @@ module Scrabble =
                         ) word
                     send cstream (SMPlay (moves))
                 else
-                    let input = System.Console.ReadLine()
-                    let move = RegEx.parseMove input
-                    debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
-                    send cstream (SMPlay move)
+                    failwith "not implemented"
+
+                    // debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
 
             let msg = recv cstream
             debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) msg) // keep the debug lines. They are useful.
