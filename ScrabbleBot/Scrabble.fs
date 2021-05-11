@@ -76,11 +76,11 @@ module State =
     // Look at the rest of hand. Map each letter from hand to a dictionary Lookup
 
     let lookup (s : string) (gdg : Dictionary.Dict) : bool =
-        let rec aux (cs : char list) (gd : Dictionary.Dict) = 
+        let rec aux (cs : char list) (gd : Dictionary.Dict) =
             match Dictionary.step cs.Head gd with
             | None      -> false
-            | Some(b,d) when cs.Length = 1 -> 
-                match Dictionary.reverse d with 
+            | Some(b,d) when cs.Length = 1 ->
+                match Dictionary.reverse d with
                 | None -> false
                 | Some(b,d) -> b
             | Some(b,d) -> aux cs.Tail d
@@ -134,14 +134,14 @@ module State =
                 acc
                 hand
 
-        let wholeWords = 
+        let wholeWords =
             List.fold
                 (fun acc l ->
                     match (genWord (snd l) []) with
                     | [] -> acc
                     | x -> (fst l, x)::acc
                 ) [] lefts
-         
+
         List.filter (fun (l,r) -> lookup (idListToString s ((List.rev l) @ r)) s.dict) wholeWords
 
 
@@ -229,7 +229,7 @@ module Scrabble =
 
     let longestWord (l : ('a list * 'a list)list) =
         let rec aux acc ls =
-            match ls with 
+            match ls with
             | [] -> acc
             | x::xs -> if ((fst x) @ (snd x)) > ((fst acc) @ (snd acc)) then aux x xs  else aux acc xs
         aux l.Head l
@@ -249,20 +249,20 @@ module Scrabble =
         aux l.Head l
 
     let checkMove (s : State.state) (anchor : coord) (word : (uint32 list * uint32 list)) isRight =
-        let checkSqr sqr isRight = 
+        let isEmptySquare sqr =
             match s.board.squares sqr with
-            | Some(x) -> 
-                match s.boardState.TryFind sqr with 
-                | Some(x) -> true
-                | None -> false
+            | Some(_) ->
+                match s.boardState.TryFind sqr with
+                | None -> true
+                | Some(_) -> false
             | None -> false
 
         let rec checkLeft amt anchor =
             if amt = 0 then
                 true
             else
-                let c = if isRight then ((fst anchor)-amt, snd anchor) else (fst anchor, (snd anchor)-amt)
-                match checkSqr c isRight with
+                let c = if isRight then ((fst anchor)+amt, snd anchor) else (fst anchor, (snd anchor)+amt)
+                match isEmptySquare c with
                 | true -> checkLeft (amt+1) anchor
                 | false -> false
 
@@ -270,8 +270,8 @@ module Scrabble =
             if amt = 0 then
                 true
             else
-                let c = if isRight then ((fst anchor)+amt, snd anchor) else (fst anchor, (snd anchor)+amt)
-                match checkSqr c isRight with
+                let c = if isRight then ((fst anchor)-amt, snd anchor) else (fst anchor, (snd anchor)-amt)
+                match isEmptySquare c with
                 | true -> checkLeft (amt-1) anchor
                 | false -> false
 
@@ -283,7 +283,7 @@ module Scrabble =
         let rec aux (st: State.state) =
 
             Print.printHand pieces (State.hand st)
-            Print.printLegalTiles st.legalTiles
+            // Print.printLegalTiles st.legalTiles
 
             let tilesToChange : (uint32 * uint32) list = []
             //Our turn check
@@ -291,7 +291,7 @@ module Scrabble =
 
                 // forcePrint
                 //     "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
-                
+
                 //TODO: fix else case, fix getting stuck on changing tiles
                 if st.boardState.IsEmpty then
                     let isRight = true
@@ -312,19 +312,29 @@ module Scrabble =
                                 let steppedDict = Dictionary.step (t |> snd |> snd |> fst) st.dict
                                 if steppedDict.IsNone then None
                                 else
-                                    match List.sortByDescending (fun w -> wordPoints st w) (State.generateWords st [t |> snd |> fst] (snd steppedDict.Value)) with
-                                    | [] -> None
-                                    | x -> 
-                                        if checkMove st (fst t) x.Head true then Some ((fst t, true), x.Head)
-                                        elif checkMove st (fst t) x.Head false then Some ((fst t, false), x.Head)
-                                        else None
+                                    let words = State.generateWords st [t |> snd |> fst] (snd steppedDict.Value)
+                                    if words.Length = 0 then None
+                                    else
+                                        match List.sortByDescending (fun w -> wordPoints st w) (State.generateWords st [t |> snd |> fst] (snd steppedDict.Value)) with
+                                        | [] -> None
+                                        | x ->
+                                            Some ((fst t, false), x.Head)
+                                            // if checkMove st (fst t) x.Head false then Some ((fst t, false), x.Head)
+                                            // elif checkMove st (fst t) x.Head true then Some ((fst t, true), x.Head)
+                                            // else None
                             )
                             (Map.toList st.boardState)
-                    forcePrint (string m)
-                    let fm = List.filter (fun x -> Option.isSome x) m
+                    let moves = List.filter Option.isNone m
+                    forcePrint ("MOVES: " + (string moves.Length))
+                    forcePrint (string moves)
+                    forcePrint "<<<>>><<<>>>"
+
+                    let fm = List.filter (fun x -> Option.isSome x) m |> List.map (fun x -> x.Value)
                     let word = fm.Head
-                    let move = State.generateMove st (snd word.Value) (fst (fst word.Value)) (snd (fst word.Value))
-                    send cstream (SMPlay (move))
+                    let move = checkMove st (word |> fst |> fst) (snd word) false
+                    forcePrint (string move)
+                    // let move = State.generateMove st (snd word.Value) (fst (fst word.Value)) (snd (fst word.Value))
+                    // send cstream (SMPlay (move))
 
                     // debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
 
