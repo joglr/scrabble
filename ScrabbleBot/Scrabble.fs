@@ -272,16 +272,16 @@ module Scrabble =
             if amt = 0 then
                 true
             else
-                let c = if isRight then ((fst anchor)+amt, snd anchor) else (fst anchor, (snd anchor)+amt)
+                let c = if isRight then ((fst anchor)-amt, snd anchor) else (fst anchor, (snd anchor)-amt)
                 match isEmptySquare c with
-                | true -> checkLeft (amt+1) anchor
+                | true -> checkLeft (amt-1) anchor
                 | false -> false
 
         let rec checkRight amt anchor =
             if amt = 0 then
                 true
             else
-                let c = if isRight then ((fst anchor)-amt, snd anchor) else (fst anchor, (snd anchor)-amt)
+                let c = if isRight then ((fst anchor)+amt, snd anchor) else (fst anchor, (snd anchor)+amt)
                 match isEmptySquare c with
                 | true -> checkLeft (amt-1) anchor
                 | false -> false
