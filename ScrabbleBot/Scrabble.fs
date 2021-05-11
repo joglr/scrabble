@@ -328,14 +328,13 @@ module Scrabble =
                     forcePrint ("MOVES: " + (string m.Length) + "\n")
                     forcePrint (string m + "\n")
 
-                    let fm = m
-                    let word = fm.Head
-                    let move = checkMove st (word |> fst |> fst) (snd word) false
+                    let word = m.Head
+                    let moveVert = checkMove st (word |> fst |> fst) (snd word) false
                     let moveHoris = checkMove st (word |> fst |> fst) (snd word) true
-                    forcePrint ("MoveIsValidVert:" + (string move) + "\n")
+                    forcePrint ("MoveIsValidVert:" + (string moveVert) + "\n")
                     forcePrint ("MoveIsValidHoris:" + (string moveHoris) + "\n")
-                    // let move = State.generateMove st (snd word.Value) (fst (fst word.Value)) (snd (fst word.Value))
-                    // send cstream (SMPlay (move))
+                    let move = State.generateMove st (snd word) (fst (fst word)) (snd (fst word))
+                    send cstream (SMPlay (move))
 
                     // debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
 
