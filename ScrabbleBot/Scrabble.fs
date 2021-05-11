@@ -156,19 +156,19 @@ module State =
         filteredWords
 
 
-    let generateMove s (l,r) (x,y) isRight =
+    let generateMove s ((l,r) : uint32 list * uint32 list) (x,y) isRight =
         let lmoves =
             List.mapi
                 (fun i c ->
                     let (char, point) = lookupTile s c
-                    let coord = if isRight then (x - i, y) else (x, y - i)
+                    let coord = if isRight then (x - i, y) else (x, y - (i + 1))
                     (coord, (c, (char, point)))
                 ) l
         let rmoves =
             List.mapi
                 (fun i c ->
                 let (char, point) = lookupTile s c
-                let coord = if isRight then (x + (i+1), y) else (x, y + (i+1))
+                let coord = if isRight then (x + (i+1), y) else (x, y - (i-1))
                 (coord, (c, (char, point)))
             ) r
         lmoves @ rmoves
@@ -340,12 +340,14 @@ module Scrabble =
                     forcePrint ("MOVES: " + (string m.Length) + "\n")
                     forcePrint (string m + "\n")
 
-                    let word = m.Head
-                    let moveVert = checkMove st (word |> fst |> fst) (snd word) false
-                    let moveHoris = checkMove st (word |> fst |> fst) (snd word) true
+                    let wordInfo = m.Head
+                    let word = snd wordInfo
+                    forcePrint (string (State.idListToString st ((fst word |> List.rev) @ snd word)))
+                    let moveVert = checkMove st (wordInfo |> fst |> fst) (snd wordInfo) false
+                    let moveHoris = checkMove st (wordInfo |> fst |> fst) (snd wordInfo) true
                     forcePrint ("MoveIsValidVert:" + (string moveVert) + "\n")
                     forcePrint ("MoveIsValidHoris:" + (string moveHoris) + "\n")
-                    let move = State.generateMove st (snd word) (fst (fst word)) (snd (fst word))
+                    let move = State.generateMove st ((fst word).Tail, snd word) (fst (fst wordInfo)) (snd (fst wordInfo))
                     send cstream (SMPlay (move))
 
                     // debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
