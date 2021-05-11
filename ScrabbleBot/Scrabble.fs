@@ -342,17 +342,21 @@ module Scrabble =
                             )
                             [] (Map.toList st.boardState)
 
-                    let moves = (List.fold (@) [] movesByTiles) |> List.sortByDescending (fun w -> wordPoints st (snd w))
+                    if movesByTiles.Length = 0 then
+                        tilesToChange <- st.hand |> MultiSet.toTupleList
+                        send cstream (SMChange (MultiSet.toList st.hand))
+                    else
+                        let moves = (List.fold (@) [] movesByTiles) |> List.sortByDescending (fun w -> wordPoints st (snd w))
 
-                    forcePrint ("MOVES: " + (string moves.Length) + "\n")
-                    forcePrint (string moves + "\n")
+                        forcePrint ("MOVES: " + (string moves.Length) + "\n")
+                        forcePrint (string moves + "\n")
 
-                    let wordInfo = moves.Head
-                    let word = snd wordInfo
-                    forcePrint (string (State.idListToString st ((fst word |> List.rev) @ snd word)))
+                        let wordInfo = moves.Head
+                        let word = snd wordInfo
+                        forcePrint (string (State.idListToString st ((fst word |> List.rev) @ snd word)))
 
-                    let move = State.generateMove st ((fst word).Tail, snd word) (fst (fst wordInfo)) (snd (fst wordInfo))
-                    send cstream (SMPlay (move))
+                        let move = State.generateMove st ((fst word).Tail, snd word) (fst (fst wordInfo)) (snd (fst wordInfo))
+                        send cstream (SMPlay (move))
 
                     // debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
 
