@@ -92,7 +92,7 @@ module State =
         | x :: xs -> x :: (filterSingle pred xs)
         | [] -> []
 
-    let generateWords s (partialWord) =
+    let generateWords s partialWord dict0 =
 
         let listOfTiles = MultiSet.toList s.hand
 
@@ -115,7 +115,7 @@ module State =
                 acc
                 hand
 
-        let lefts = foldGenLefts partialWord listOfTiles s.dict []
+        let lefts = foldGenLefts partialWord listOfTiles dict0 []
 
         let rec genWord ((dict1,hand) : (Dictionary.Dict * uint32 list)) (acc : uint32 list) : uint32 list =
             List.fold
@@ -296,7 +296,7 @@ module Scrabble =
                 if st.boardState.IsEmpty then
                     let isRight = true
                     let anchor = (0, 0)
-                    let possibleWords = List.sortByDescending (fun w -> wordPoints st w) (State.generateWords st []) |> Set.ofList
+                    let possibleWords = List.sortByDescending (fun w -> wordPoints st w) (State.generateWords st [] st.dict) |> Set.ofList
                     let words = Set.map (fun (l,r) -> (State.idListToString st (List.rev l),State.idListToString st r)) possibleWords
                     forcePrint ("WORDS: " + (string words.Count) + " " + (string words))
                     if possibleWords.IsEmpty then send cstream (SMChange (MultiSet.toList st.hand))
@@ -307,14 +307,18 @@ module Scrabble =
                     let m =
                         List.map
                             (fun t ->
-                                match List.sortByDescending (fun w -> wordPoints st w) (State.generateWords st [t |> snd |> fst]) with
-                                | [] -> None
-                                | x -> 
-                                    if checkMove st (fst t) x.Head true then Some ((fst t, true), x.Head)
-                                    elif checkMove st (fst t) x.Head true then Some ((fst t, false), x.Head)
-                                    else None
+                                let steppedDict = Dictionary.step (t |> snd |> snd |> fst) st.dict
+                                if steppedDict.IsNone then None
+                                else
+                                    match List.sortByDescending (fun w -> wordPoints st w) (State.generateWords st [t |> snd |> fst] (snd steppedDict.Value)) with
+                                    | [] -> None
+                                    | x -> 
+                                        if checkMove st (fst t) x.Head true then Some ((fst t, true), x.Head)
+                                        elif checkMove st (fst t) x.Head false then Some ((fst t, false), x.Head)
+                                        else None
                             )
                             (Map.toList st.boardState)
+                    forcePrint (string m)
                     let fm = List.filter (fun x -> Option.isSome x) m
                     let word = fm.Head
                     let move = State.generateMove st (snd word.Value) (fst (fst word.Value)) (snd (fst word.Value))
