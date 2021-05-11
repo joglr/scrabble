@@ -285,7 +285,7 @@ module Scrabble =
             Print.printHand pieces (State.hand st)
             Print.printLegalTiles st.legalTiles
 
-            //let tilesToChange : (uint32 * uint32) list = []
+            let tilesToChange : (uint32 * uint32) list = []
             //Our turn check
             if (st.playerNumber = PlayersState.current st.playersState) then
 
@@ -299,7 +299,9 @@ module Scrabble =
                     let possibleWords = List.sortByDescending (fun w -> wordPoints st w) (State.generateWords st [] st.dict) |> Set.ofList
                     let words = Set.map (fun (l,r) -> (State.idListToString st (List.rev l),State.idListToString st r)) possibleWords
                     forcePrint ("WORDS: " + (string words.Count) + " " + (string words))
-                    if possibleWords.IsEmpty then send cstream (SMChange (MultiSet.toList st.hand))
+                    if possibleWords.IsEmpty then 
+                        let tilesToChange = st.hand
+                        send cstream (SMChange (MultiSet.toList st.hand))
                     let word = possibleWords.MinimumElement
                     let move = State.generateMove st word anchor isRight
                     send cstream (SMPlay (move))
@@ -379,7 +381,7 @@ module Scrabble =
             | RCM (CMChangeSuccess (newTiles)) ->
                 let st' =
                     { st with
-                          hand = (State.updateHand [] newTiles st.hand) }
+                          hand = (State.updateHand tilesToChange newTiles st.hand) }
 
                 aux st'
 
