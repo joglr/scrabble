@@ -259,7 +259,7 @@ module Scrabble =
             | x::xs -> if (wordPoints s x) > (wordPoints s acc) then aux x xs else aux acc xs
         aux l.Head l
 
-    let checkMove (s : State.state) (anchor : coord) (word : (uint32 list * uint32 list)) isRight =
+    let checkMove (s : State.state) (anchor : coord) (word : (uint32 list * uint32 list)) isHorizontal =
         let isEmptySquare sqr =
             match s.board.squares sqr with
             | Some(_) ->
@@ -268,25 +268,22 @@ module Scrabble =
                 | Some(_) -> false
             | None -> false
 
-        let rec checkLeft amt anchor =
+        // Dir:
+            //  1: Right
+            // -1: Left
+        let rec checkDir amt anchor dir =
             if amt = 0 then
                 true
             else
-                let c = if isRight then ((fst anchor)-amt, snd anchor) else (fst anchor, (snd anchor)-amt)
-                match isEmptySquare c with
-                | true -> checkLeft (amt-1) anchor
+                let c1 = if isHorizontal then ((fst anchor) + dir * amt, snd anchor + 1) else (fst anchor + 1, (snd anchor) + dir * amt)
+                let c =  if isHorizontal then ((fst anchor) + dir * amt, snd anchor)     else (fst anchor, (snd anchor) + dir * amt)
+                let c3 = if isHorizontal then ((fst anchor) + dir * amt, snd anchor - 1) else (fst anchor - 1, (snd anchor) + dir * amt)
+
+                match isEmptySquare c1 && isEmptySquare c && isEmptySquare c3 with
+                | true -> checkDir (amt-1) anchor dir
                 | false -> false
 
-        let rec checkRight amt anchor =
-            if amt = 0 then
-                true
-            else
-                let c = if isRight then ((fst anchor)+amt, snd anchor) else (fst anchor, (snd anchor)+amt)
-                match isEmptySquare c with
-                | true -> checkLeft (amt-1) anchor
-                | false -> false
-
-        (checkLeft (fst word).Length anchor) && (checkRight (snd word).Length anchor)
+        (checkDir (fst word).Length anchor -1) && (checkDir (snd word).Length anchor 1)
 
 
     let playGame cstream pieces (st: State.state) =
@@ -303,7 +300,6 @@ module Scrabble =
                 // forcePrint
                 //     "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
 
-                //TODO: fix else case, fix getting stuck on changing tiles
                 if st.boardState.IsEmpty then
                     let isRight = true
                     let anchor = (0, 0)
@@ -318,7 +314,7 @@ module Scrabble =
                         let move = State.generateMove st word anchor isRight
                         send cstream (SMPlay (move))
                 else
-                    let movesByTiles =
+                    let moves =
                         List.fold
                             (fun acc t ->
                                 let steppedDict = Dictionary.step (t |> snd |> snd |> fst) st.dict
@@ -331,7 +327,7 @@ module Scrabble =
                                         | [] -> acc
                                         | x ->
                                             let moves =
-                                                List.fold  
+                                                List.fold
                                                     (fun acc m ->
                                                         if checkMove st (fst t) m false then ((fst t, false), m)::acc
                                                         elif checkMove st (fst t) m true then ((fst t, true), m)::acc
@@ -341,12 +337,13 @@ module Scrabble =
                                             moves :: acc
                             )
                             [] (Map.toList st.boardState)
+                        |> List.fold (@) []  |> List.sortByDescending (fun w -> wordPoints st (snd w))
 
-                    if movesByTiles.Length = 0 then
+                    if moves.Length = 0 then
+                        forcePrint ("No moves available, changing hand" + "\n")
                         tilesToChange <- st.hand |> MultiSet.toTupleList
                         send cstream (SMChange (MultiSet.toList st.hand))
                     else
-                        let moves = (List.fold (@) [] movesByTiles) |> List.sortByDescending (fun w -> wordPoints st (snd w))
 
                         forcePrint ("MOVES: " + (string moves.Length) + "\n")
                         forcePrint (string moves + "\n")
@@ -356,6 +353,7 @@ module Scrabble =
                         forcePrint (string (State.idListToString st ((fst word |> List.rev) @ snd word)))
 
                         let move = State.generateMove st ((fst word).Tail, snd word) (fst (fst wordInfo)) (snd (fst wordInfo))
+                        forcePrint ("MOVE:" + (string move))
                         send cstream (SMPlay (move))
 
                     // debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
