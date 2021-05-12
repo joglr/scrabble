@@ -34,7 +34,7 @@ module internal Dictionary
             | x::xs ->
                 match (fst x) with
                 | Char (c, b) -> if (c = n) then Some(b, extract(snd x)) else go n xs
-                | Hook (b) -> Some(b, extract(snd x))
+                | Hook (b) -> if (c = '#') then Some(b, extract(snd x)) else go n xs
         go c l
 
 

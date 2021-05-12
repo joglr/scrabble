@@ -161,7 +161,7 @@ module State =
             List.mapi
                 (fun i c ->
                     let (char, point) = lookupTile s c
-                    let coord = if isRight then (x - i, y) else (x, y - (i + 1))
+                    let coord = if isRight then (x - (i + 1), y) else (x, y - (i + 1))
                     (coord, (c, (char, point)))
                 ) l
         let rmoves =
@@ -173,6 +173,21 @@ module State =
             ) r
         lmoves @ rmoves
 
+    let generateFirstMove s ((l,r) : uint32 list * uint32 list) =
+        let lmoves =
+            List.mapi
+                (fun i c ->
+                    let (char, point) = lookupTile s c
+                    
+                    ((0 - i, 0), (c, (char, point)))
+                ) l
+        let rmoves =
+            List.mapi
+                (fun i c ->
+                let (char, point) = lookupTile s c
+                ((0 + (i+1), 0), (c, (char, point)))
+            ) r
+        lmoves @ rmoves
 
 
     // TODO: Keep direction as well
@@ -238,6 +253,22 @@ module Print =
 
 module Scrabble =
 
+    let keepers = ['E';'A';'R';'I';'O';'T';'N';'S';'L';]
+
+    let findTilesToChange (s : State.state) =
+        let rec aux h acc =
+            match h with
+            | [] -> acc
+            | x::xs -> 
+                if (snd x > 2u) then
+                    aux xs ((fst x)::acc)
+                else
+                    aux xs acc
+                    
+        let res = aux (MultiSet.toTupleList s.hand) []
+        if res.Length < 3 then MultiSet.toList s.hand else res
+
+
     let longestWord (l : ('a list * 'a list)list) =
         let rec aux acc ls =
             match ls with
@@ -282,13 +313,20 @@ module Scrabble =
                 match isEmptySquare c1 && isEmptySquare c && isEmptySquare c3 with
                 | true -> checkDir (amt-1) anchor dir
                 | false -> false
+        
+        let checkStart =
+            isEmptySquare (if isHorizontal then ((fst anchor) - List.length (fst word) , snd anchor) else (fst anchor, (snd anchor) - List.length (fst word)))
+        let checkEnd =
+            isEmptySquare (if isHorizontal then ((fst anchor) + 1 + List.length (snd word) , snd anchor) else (fst anchor, (snd anchor) + 1 + List.length (snd word)))
 
-        (checkDir (fst word).Length anchor -1) && (checkDir (snd word).Length anchor 1)
+        (checkDir (fst word).Length anchor -1) && (checkDir (snd word).Length anchor 1) && checkStart && checkEnd
 
 
     let playGame cstream pieces (st: State.state) =
 
         let rec aux (st: State.state) =
+
+            forcePrint (State.lookup "TOME" st.dict |> string)
 
             Print.printHand pieces (State.hand st)
             // Print.printLegalTiles st.legalTiles
@@ -301,17 +339,16 @@ module Scrabble =
                 //     "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
 
                 if st.boardState.IsEmpty then
-                    let isRight = true
-                    let anchor = (0, 0)
-                    let possibleWords = List.sortByDescending (fun w -> wordPoints st w) (State.generateWords st [] st.dict) |> Set.ofList
-                    let words = Set.map (fun (l,r) -> (State.idListToString st (List.rev l),State.idListToString st r)) possibleWords
-                    forcePrint ("WORDS: " + (string words.Count) + " " + (string words) + "\n")
+                    let possibleWords = List.sortByDescending (fun w -> wordPoints st w) (State.generateWords st [] st.dict)
+                    let words = List.map (fun (l,r) -> (State.idListToString st (List.rev l),State.idListToString st r)) possibleWords
+                    forcePrint ("WORDS: " + (string words.Length) + " " + (string words) + "\n")
                     if possibleWords.IsEmpty then
-                        tilesToChange <- st.hand |> MultiSet.toTupleList
-                        send cstream (SMChange (MultiSet.toList st.hand))
+                        let tcc = st |> findTilesToChange
+                        tilesToChange <- tcc |> MultiSet.ofList |> MultiSet.toTupleList
+                        send cstream (SMChange (tcc))
                     else
-                        let word = possibleWords.MinimumElement
-                        let move = State.generateMove st word anchor isRight
+                        let word = possibleWords.Head
+                        let move = State.generateFirstMove st word
                         send cstream (SMPlay (move))
                 else
                     let moves =
@@ -341,8 +378,9 @@ module Scrabble =
 
                     if moves.Length = 0 then
                         forcePrint ("No moves available, changing hand" + "\n")
-                        tilesToChange <- st.hand |> MultiSet.toTupleList
-                        send cstream (SMChange (MultiSet.toList st.hand))
+                        let tcc = st |> findTilesToChange
+                        tilesToChange <- tcc |> MultiSet.ofList |> MultiSet.toTupleList
+                        send cstream (SMChange (tcc))
                     else
 
                         forcePrint ("MOVES: " + (string moves.Length) + "\n")
