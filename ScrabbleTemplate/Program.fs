@@ -45,14 +45,14 @@ let main argv =
     let handSize = 10u
     let timeout = None
     let tiles = ScrabbleUtil.English.tiles 1u
-    let seed = None // Some 422
+    let seed = Some 422
     let port = 13001
 
     // let players = spawnMultiples "OxyphenButazone" Oxyphenbutazone.Scrabble.startGame 2
     // Uncomment this line to call your client
     let players =
         [ ("JScrapelt", JScrapelt.Scrabble.startGame) ]
-    // let players = spawnMultiples "JScrapelt" JScrapelt.Scrabble.startGame 1
+    // let players = spawnMultiples "JScrapelt" JScrapelt.Scrabble.startGame 2
 
     let (dictionary, time) =
         time

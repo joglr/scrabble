@@ -106,7 +106,10 @@ module State =
                             match Dictionary.reverse dict2 with
                             | Some(b,dict3) ->
                                 // printfn "Found: %A" w
-                                foldGenLefts w newHand dict2 ((w,(dict3,newHand))::acc)
+                                if b then
+                                   foldGenLefts w newHand dict2 (fst acc, w::(snd acc))
+                                else
+                                    foldGenLefts w newHand dict2 ((w,(dict3,newHand))::(fst acc), snd acc)
                             | None ->
                                 // printfn "Pword: %A" w
                                 foldGenLefts w newHand dict2 acc
@@ -115,7 +118,9 @@ module State =
                 acc
                 hand
 
-        let lefts = foldGenLefts partialWord listOfTiles dict0 []
+        let lefts = foldGenLefts partialWord listOfTiles dict0 ([], [])
+        let completeLefts = List.map (fun x -> (x,List.empty<uint32>)) (snd lefts)
+        let partialLefts = fst lefts
 
         let rec genWord ((dict1,hand) : (Dictionary.Dict * uint32 list)) (acc : uint32 list) : uint32 list =
             List.fold
@@ -140,7 +145,9 @@ module State =
                     match (genWord (snd l) []) with
                     | [] -> acc
                     | x -> (fst l, x)::acc
-                ) [] lefts
+                ) [] partialLefts
+
+        let allWords = wholeWords @ completeLefts
         // forcePrint ("wholeWords: " + (string wholeWords.Length) + "\n")
         let filteredWords =
             List.filter
@@ -150,7 +157,7 @@ module State =
                     // forcePrint(word + " is " + (if isValidWord then "valid" else "invalid") + "\n")
                     isValidWord
                 )
-                wholeWords
+                allWords
 
         // forcePrint ("Filtered: " + (string filteredWords.Length) + "\n")
         filteredWords
@@ -326,15 +333,14 @@ module Scrabble =
 
         let rec aux (st: State.state) =
 
-            forcePrint (State.lookup "TOME" st.dict |> string)
-
-            Print.printHand pieces (State.hand st)
             // Print.printLegalTiles st.legalTiles
 
             let mutable tilesToChange : (uint32 * uint32) list = []
             //Our turn check
             if (st.playerNumber = PlayersState.current st.playersState) then
 
+                forcePrint ("Player: " + string (PlayersState.current st.playersState) + "\n")
+                Print.printHand pieces (State.hand st)
                 // forcePrint
                 //     "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
 
@@ -444,7 +450,8 @@ module Scrabble =
             | RCM (CMChangeSuccess (newTiles)) ->
                 let st' =
                     { st with
-                          hand = (State.updateHand tilesToChange newTiles st.hand) }
+                          hand = (State.updateHand tilesToChange newTiles st.hand) 
+                          playersState = PlayersState.next st.playersState }
 
                 aux st'
 
@@ -455,16 +462,12 @@ module Scrabble =
 
                 aux st'
 
-            | RCM (CMPlayFailed (_))
-            | RCM (CMChange (_))
-            | RCM (CMPassed (_))
-            | RCM (CMTimeout (_)) ->
+            | RCM (CMPlayFailed (_)) | RCM (CMChange (_)) | RCM (CMPassed (_)) | RCM (CMTimeout (_)) ->
                 let st' =
                     { st with
                           playersState = PlayersState.next st.playersState }
 
                 aux st'
-
 
             | RCM (CMGameOver _) -> ()
             | RGPE err ->
