@@ -403,14 +403,28 @@ module Scrabble =
         && checkStart
         && checkEnd
 
+    let checkMoves st t x =
+        List.fold
+            (fun acc m ->
+                if checkMove st (fst t) m false then
+                    ((fst t, false), m) :: acc
+                elif checkMove st (fst t) m true then
+                    ((fst t, true), m) :: acc
+                else
+                    acc)
+            []
+            x
+
 
     let playGame cstream pieces (st: State.state) =
+        let gameStopWatch = System.Diagnostics.Stopwatch.StartNew()
 
         let rec aux (st: State.state) =
 
             // Print.printLegalTiles st.legalTiles
 
             let mutable tilesToChange : (uint32 * uint32) list = []
+            let mutable isTimedOut = false
             //Our turn check
             if (st.playerNumber = PlayersState.current st.playersState) then
 
@@ -424,93 +438,90 @@ module Scrabble =
                 // forcePrint
                 //     "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
 
-                if st.boardState.IsEmpty then
-                    let possibleWords =
-                        List.sortByDescending (fun w -> wordPoints st w) (State.generateWords st [] st.dict)
-                        |> List.filter
-                            (fun m ->
-                                (let wordLength = (fst m).Length + (snd m).Length
-                                 let offset = wordLength / 2
-                                 let anchor = (-offset, 0)
-                                 checkMove st anchor m true))
+                forcePrint "Generating move... \n"
 
-                    let words =
-                        List.map
-                            (fun (l, r) -> (State.idListToString st (List.rev l), State.idListToString st r))
-                            possibleWords
+                let stopWatch = System.Diagnostics.Stopwatch.StartNew()
+                let move =
+                    if st.boardState.IsEmpty then
+                        let possibleWords =
+                            List.sortByDescending (fun w -> wordPoints st w) (State.generateWords st [] st.dict)
+                            |> List.filter
+                                (fun m ->
+                                    (let wordLength = (fst m).Length + (snd m).Length
+                                     let offset = wordLength / 2
+                                     let anchor = (-offset, 0)
+                                     checkMove st anchor m true))
 
-                    forcePrint (
-                        "WORDS: "
-                        + (string words.Length)
-                        + " "
-                        + (string words)
-                        + "\n"
-                    )
+                        let words =
+                            List.map
+                                (fun (l, r) -> (State.idListToString st (List.rev l), State.idListToString st r))
+                                possibleWords
 
-                    if possibleWords.IsEmpty then
-                        let tcc = st |> findTilesToChange
-                        tilesToChange <- tcc |> MultiSet.ofList |> MultiSet.toTupleList
-                        send cstream (SMChange(tcc))
+                        forcePrint (
+                            "WORDS: "
+                            + (string words.Length)
+                            + " "
+                            + (string words)
+                            + "\n"
+                        )
+
+                        if possibleWords.IsEmpty then
+                            None
+                        else
+                            let word = possibleWords.Head
+                            Some(State.generateFirstMove st word)
                     else
-                        let word = possibleWords.Head
-                        let move = State.generateFirstMove st word
-                        send cstream (SMPlay(move))
-                else
-                    let moves =
-                        List.fold
-                            (fun acc t ->
-                                let steppedDict =
-                                    Dictionary.step (t |> snd |> snd |> fst) st.dict
-
-                                if steppedDict.IsNone then
-                                    acc
-                                else
-                                    let words =
-                                        State.generateWords st [ t |> snd |> fst ] (snd steppedDict.Value)
-
-                                    if words.Length = 0 then
-                                        acc
-                                    else
-                                        match (State.generateWords st [ t |> snd |> fst ] (snd steppedDict.Value)) with
-                                        | [] -> acc
-                                        | x ->
-                                            let moves =
-                                                List.fold
-                                                    (fun acc m ->
-                                                        if checkMove st (fst t) m false then
-                                                            ((fst t, false), m) :: acc
-                                                        elif checkMove st (fst t) m true then
-                                                            ((fst t, true), m) :: acc
-                                                        else
-                                                            acc)
-                                                    []
-                                                    x
-
-                                            moves :: acc)
-                            []
+                        let moves =
                             (Map.toList st.boardState)
-                        |> List.fold (@) []
-                        |> List.sortByDescending (fun w -> wordPoints st (snd w))
+                            |> Seq.map
+                                (fun t ->
+                                    async {
+                                        let steppedDict =
+                                            Dictionary.step (t |> snd |> snd |> fst) st.dict
 
-                    if moves.Length = 0 then
-                        forcePrint ("No moves available, changing hand" + "\n")
+                                        if steppedDict.IsNone then
+                                            return []
+                                        else
+                                            let words =
+                                                State.generateWords st [ t |> snd |> fst ] (snd steppedDict.Value)
+
+                                            if words.Length = 0 then
+                                                return []
+                                            else
+                                                match (State.generateWords st [ t |> snd |> fst ] (snd steppedDict.Value)) with
+                                                | [] -> return []
+                                                | x ->
+                                                    return checkMoves st t x
+                                    }
+                                )
+
+                            // |> Async.Sequential // Swap this an below to test parallelism
+                            |> Async.Parallel
+                            |> Async.RunSynchronously
+                            |> Seq.fold (@) []
+                            |> List.sortByDescending (fun w -> wordPoints st (snd w))
+
+                        if moves.Length = 0 then
+                            None
+                        else
+                            let wordInfo = moves.Head
+                            let word = snd wordInfo
+                            Some(State.generateMove st ((fst word).Tail, snd word) (fst (fst wordInfo)) (snd (fst wordInfo)))
+
+                stopWatch.Stop()
+                forcePrint $"Time: {string (stopWatch.Elapsed.TotalMilliseconds / 1000.0)} seconds \n"
+
+                if isTimedOut then forcePrint "Timed out \n"
+                else
+                    match move with
+                    | Some(m) ->
+                        forcePrint ("MOVE: " + (string move))
+                        send cstream (SMPlay(m))
+                    | None ->
+                        forcePrint "No moves available, changing hand \n"
                         let tcc = st |> findTilesToChange
                         tilesToChange <- tcc |> MultiSet.ofList |> MultiSet.toTupleList
                         send cstream (SMChange(tcc))
-                    else
-
-                        forcePrint ("MOVES: " + (string moves.Length) + "\n")
-                        forcePrint (string moves + "\n")
-
-                        let wordInfo = moves.Head
-                        let word = snd wordInfo
-                        forcePrint (string (State.idListToString st ((fst word |> List.rev) @ snd word)))
-
-                        let move =
-                            State.generateMove st ((fst word).Tail, snd word) (fst (fst wordInfo)) (snd (fst wordInfo))
-
-                        forcePrint ("MOVE:" + (string move))
-                        send cstream (SMPlay(move))
 
             // debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
 
@@ -576,8 +587,17 @@ module Scrabble =
 
             | RCM (CMPlayFailed (_))
             | RCM (CMChange (_))
-            | RCM (CMPassed (_))
-            | RCM (CMTimeout (_)) ->
+            | RCM (CMPassed (_)) ->
+                let st' =
+                    { st with
+                          playersState = PlayersState.next st.playersState }
+
+                aux st'
+
+            | RCM (CMTimeout (id)) ->
+                if st.playerNumber = id then
+                    ignore (isTimedOut <- true)
+
                 let st' =
                     { st with
                           playersState = PlayersState.next st.playersState }
@@ -591,6 +611,9 @@ module Scrabble =
 
 
         aux st
+
+        gameStopWatch.Stop()
+        forcePrint $"Total Game Time: {string (gameStopWatch.Elapsed.TotalMilliseconds / 1000.0 |> round)} seconds \n"
 
     let startGame
         (boardP: boardProg)

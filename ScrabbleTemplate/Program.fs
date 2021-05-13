@@ -41,8 +41,8 @@ let main argv =
     let words = readLines "./Dictionaries/English.txt"
     // let words = readLines "./Dictionaries/Short.txt"
 
-    let handSize = 20u
-    let timeout = None
+    let handSize = 14u
+    let timeout = Some (60u * 1000u)
     let tiles = ScrabbleUtil.English.tiles 1u
     // let seed = None
     let seed = Some(65680042)
