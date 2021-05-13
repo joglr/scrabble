@@ -45,7 +45,7 @@ let main argv =
     let timeout = Some (60u * 1000u)
     let tiles = ScrabbleUtil.English.tiles 1u
     // let seed = None
-    let seed = Some(65680042)
+    let seed = Some(422)
     // let seed = Some (Random().Next())
     // ScrabbleUtil.DebugPrint.forcePrint ("SEED: " + (string seed) + "\n")
     let port = 13001
