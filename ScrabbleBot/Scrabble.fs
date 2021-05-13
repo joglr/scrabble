@@ -454,7 +454,7 @@ module Scrabble =
 
                         let words =
                             List.map
-                                (fun (l, r) -> (State.idListToString st (List.rev l), State.idListToString st r))
+                                (fun (l, r) -> ($"{State.idListToString st (List.rev l)}_{State.idListToString st r}"))
                                 possibleWords
 
                         forcePrint (
@@ -495,7 +495,7 @@ module Scrabble =
                                     }
                                 )
 
-                            // |> Async.Sequential // Swap this an below to test parallelism
+                            // |> Async.Sequential // Swap this and below to test parallelism
                             |> Async.Parallel
                             |> Async.RunSynchronously
                             |> Seq.fold (@) []
@@ -509,13 +509,13 @@ module Scrabble =
                             Some(State.generateMove st ((fst word).Tail, snd word) (fst (fst wordInfo)) (snd (fst wordInfo)))
 
                 stopWatch.Stop()
-                forcePrint $"Time: {string (stopWatch.Elapsed.TotalMilliseconds / 1000.0)} seconds \n"
+                forcePrint $"Time: {string (stopWatch.Elapsed.TotalMilliseconds / 1000.0 |> round)} seconds \n"
 
                 if isTimedOut then forcePrint "Timed out \n"
                 else
                     match move with
                     | Some(m) ->
-                        forcePrint ("MOVE: " + (string move))
+                        forcePrint $"MOVE: {(string move) }\n"
                         send cstream (SMPlay(m))
                     | None ->
                         forcePrint "No moves available, changing hand \n"
