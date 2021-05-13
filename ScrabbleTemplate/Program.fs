@@ -66,6 +66,8 @@ let main argv =
                     (Some Dictionary.reverse)
                     words)
 
+    ScrabbleUtil.DebugPrint.forcePrint $"Dictionary generated in {time.TotalSeconds |> round} seconds\n"
+
     do ScrabbleServer.Comm.startGame board dictionary handSize timeout tiles seed port players
 
     ScrabbleUtil.DebugPrint.forcePrint ("Server has terminated. Press Enter to exit program.\n")
