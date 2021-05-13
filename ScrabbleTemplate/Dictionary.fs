@@ -69,7 +69,7 @@ module internal Dictionary
 
     let reverse (D (m)) =
         match getTruthAndMap '<' m with
-        | Some(b,d) -> Some(b, D (m))
+        | Some(b,d) -> Some(b, D (d))
         | None -> None 
 
     let lookupDebug (x : string) (D (m)) =
