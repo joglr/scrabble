@@ -27,25 +27,27 @@ let main argv =
     System.Console.Clear()
 
 
-    let board =
-        ScrabbleUtil.StandardBoard.standardBoard ()
-    //    let board      = ScrabbleUtil.InfiniteBoard.infiniteBoard ()
+    let board = ScrabbleUtil.StandardBoard.standardBoard ()
+    // let board      = ScrabbleUtil.InfiniteBoard.infiniteBoard ()
 
-    //    let board      = ScrabbleUtil.RandomBoard.randomBoard ()
-//    let board      = ScrabbleUtil.RandomBoard.randomBoardSeed (Some 42)
-//    let board      = ScrabbleUtil.InfiniteRandomBoard.infiniteRandomBoard ()
-//    let board      = ScrabbleUtil.InfiniteRandomBoard.infiniteRandomBoardSeed (Some 42)
+    // let board      = ScrabbleUtil.RandomBoard.randomBoard ()
+    // let board      = ScrabbleUtil.RandomBoard.randomBoardSeed (Some 42)
+    // let board      = ScrabbleUtil.InfiniteRandomBoard.infiniteRandomBoard ()
+    // let board      = ScrabbleUtil.InfiniteRandomBoard.infiniteRandomBoardSeed (Some 42)
 
-    //    let board      = ScrabbleUtil.HoleBoard.holeBoard ()
-//    let board      = ScrabbleUtil.InfiniteHoleBoard.infiniteHoleBoard ()
+    // let board      = ScrabbleUtil.HoleBoard.holeBoard ()
+    // let board      = ScrabbleUtil.InfiniteHoleBoard.infiniteHoleBoard ()
 
     let words = readLines "./Dictionaries/English.txt"
     // let words = readLines "./Dictionaries/Short.txt"
 
-    let handSize = 10u
+    let handSize = 20u
     let timeout = None
     let tiles = ScrabbleUtil.English.tiles 1u
-    let seed = Some 422
+    // let seed = None
+    let seed = Some(65680042)
+    // let seed = Some (Random().Next())
+    // ScrabbleUtil.DebugPrint.forcePrint ("SEED: " + (string seed) + "\n")
     let port = 13001
 
     // let players = spawnMultiples "OxyphenButazone" Oxyphenbutazone.Scrabble.startGame 2
