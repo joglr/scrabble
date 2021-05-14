@@ -100,7 +100,7 @@ module State =
             List.fold
                 (fun acc t ->
                     match Dictionary.step (t |> (lookupTile s) |> fst) dict1 with
-                    | Some (b, dict2) ->
+                    | Some (_, dict2) ->
                         let w = partialWord @ [ t ]
                         let newHand = filterSingle (fun x -> x = t) hand
 

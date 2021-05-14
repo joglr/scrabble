@@ -1,52 +1,22 @@
 module internal Dictionary
     type Dict =
-        | D of Map<(char * bool), Dict>
+        | D of Map<char, (bool * Dict)>
 
     //Helpers
     let extract (D (m)) = m
-
-    let getMap c m =
-        let l = Map.toList m
-        let rec go c l =
-            match l with
-            | [] -> None
-            | x::xs -> if (fst (fst x)) = c then Some(extract(snd x)) else go c xs
-        go c l
-
-    let getTruth c m =
-        let l = Map.toList m
-        let rec go c l =
-            match l with
-            | [] -> None
-            | x::xs -> if (fst (fst x)) = c then Some(snd (fst x)) else go c xs
-        go c l
-
-    let getTruthAndMap c m =
-        let l = Map.toList m
-        let rec go c l =
-            match l with
-            | [] -> None
-            | x::xs -> if (fst (fst x)) = c then Some(snd (fst x), extract(snd x)) else go c xs
-        go c l
     //Helpers
 
-    let empty () = D (Map.empty<(char * bool), Dict>)
+    let empty () = D (Map.empty<char, (bool * Dict)>)
 
     let innersert (x : string) (D (m)) =
-        let emt = Map.empty<(char * bool), Dict>
-        let rec go w (m : Map<(char * bool), Dict>) =
-            match w with
-            | [] -> m
-            | x::xs when w.Length = 1 ->
-                let truthAndMap = getTruthAndMap x m
-                if truthAndMap.IsSome
-                then m.Remove(x, (fst truthAndMap.Value)).Add((x, true), D (snd truthAndMap.Value))
-                else m.Add((x, true), (empty ()))
-            | x::xs ->
-                let truthAndMap = getTruthAndMap x m
-                if truthAndMap.IsSome
-                then m.Add((x, (fst truthAndMap.Value)), D (go xs (snd truthAndMap.Value)))
-                else m.Add((x, false), D (go xs emt))
+        let rec go word (map : Map<char, (bool * Dict)>) =
+            match word with
+            | [] -> map
+            | x::xs->
+                let b = word.Length = 1
+                match Map.tryFind x map with 
+                | Some(b,d) -> Map.add x (b, D (go xs (extract d))) map
+                | None -> Map.add x (b, D (go xs Map.empty<char, (bool * Dict)>)) map
         D (go (Seq.toList x) m)
 
     let insert (s : string) (d : Dict) =
@@ -55,6 +25,7 @@ module internal Dictionary
             | x::xs ->
                 let reversed' = ([x] @ reversed)
                 let str = ((new System.String (reversed' |> List.toArray)) + "<" + (new System.String (xs |> List.toArray)))
+                // printfn "%A" str
                 let result = innersert str acc
                 aux result reversed' xs
             | [] -> acc
@@ -62,27 +33,10 @@ module internal Dictionary
         aux (d) [] (Seq.toList s)
 
     let step c (D (m)) =
-        let truthAndMap = getTruthAndMap c m
-        match truthAndMap with
-        | Some(t, m) -> Some(t, D (m))
-        | None -> None
+        Map.tryFind c m
 
     let reverse (D (m)) =
-        match getTruthAndMap '<' m with
-        | Some(b,d) -> Some(b, D (d))
-        | None -> None 
-
-    let lookupDebug (x : string) (D (m)) =
-        let rec go w (m : Map<(char * bool), Dict>) =
-            match w with
-            | [] -> false
-            | x::xs when w.Length = 1 -> defaultArg (getTruth x m) false
-            | x::xs ->
-                let charsMap = getMap x m
-                if charsMap.IsSome
-                then go xs charsMap.Value
-                else false
-        go (Seq.toList x) m
+        Map.tryFind '<' m
 
     let lookup (s: string) (d: Dict) : bool =
         let rec aux (cs: char list) (gd: Dict) =
