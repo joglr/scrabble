@@ -152,19 +152,7 @@ module State =
                 []
                 partialLefts
 
-        let allWords = wholeWords @ completeLefts
-        // forcePrint ("wholeWords: " + (string wholeWords.Length) + "\n")
-        let filteredWords =
-            List.filter
-                (fun (l, r) ->
-                    let word = idListToString s ((List.rev l) @ r)
-                    let isValidWord = lookup (word) s.dict
-                    // forcePrint(word + " is " + (if isValidWord then "valid" else "invalid") + "\n")
-                    isValidWord)
-                allWords
-
-        // forcePrint ("Filtered: " + (string filteredWords.Length) + "\n")
-        filteredWords
+        wholeWords @ completeLefts
 
 
     let generateMove s ((l, r): uint32 list * uint32 list) (x, y) isRight =
