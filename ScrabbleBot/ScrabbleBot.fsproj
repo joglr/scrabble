@@ -4,7 +4,7 @@
     <TargetFramework>net5.0</TargetFramework>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Company>IT University of Copenhagen</Company>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <PackageId>JScrapelt</PackageId>
     <AssemblyName>JScrapelt</AssemblyName>
     <Authors>Anonymous</Authors>
