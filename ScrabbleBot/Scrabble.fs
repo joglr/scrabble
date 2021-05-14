@@ -49,7 +49,6 @@ module State =
           dict: Dictionary.Dict
           playerNumber: uint32
           hand: MultiSet.MultiSet<uint32>
-          legalTiles: Set<coord>
           tiles: Map<uint32, tile> }
 
     let updateHand
@@ -218,37 +217,6 @@ module State =
         lmoves @ rmoves
 
 
-    // TODO: Keep direction as well
-    let updateLegalTiles (state: state) (ms: list<coord * (uint32 * (char * int))>) =
-        List.fold
-            (fun legalTilesAcc tile ->
-                let crd = fst tile
-
-                let adjacent : coord list =
-                    [ (fst crd + 1, snd crd)
-                      (fst crd - 1, snd crd)
-                      (fst crd, snd crd + 1)
-                      (fst crd, snd crd - 1) ]
-
-                let validNearbyMoves =
-                    List.filter
-                        (fun crd ->
-                            match state.board.squares crd with
-                            | Some (_) ->
-                                match state.boardState.TryFind crd with
-                                | Some (_) -> false
-                                | None -> true
-
-                            | None -> false)
-                        adjacent
-
-                List.fold (fun acc item -> Set.add item acc) legalTilesAcc validNearbyMoves
-
-                )
-            state.legalTiles
-            ms
-
-
     let updateBoardState (prev: Map<coord, (uint32 * (char * int))>) tiles =
         List.fold (fun acc next -> Map.add (fst next) (snd next) acc) prev tiles
 
@@ -259,7 +227,6 @@ module State =
           dict = d
           playerNumber = pn
           hand = h
-          legalTiles = Set.empty<coord>
           tiles = t }
 
     let board st = st.board
@@ -272,12 +239,6 @@ module Print =
     let printHand pieces hand =
         hand
         |> MultiSet.fold (fun _ x i -> forcePrint (sprintf "%d -> (%A, %d)\n" x (Map.find x pieces) i)) ()
-
-    let printLegalTiles (legalTiles) =
-        forcePrint (sprintf "LegalTiles: %A" legalTiles)
-        printfn ""
-        ()
-
 
 module Scrabble =
 
@@ -421,8 +382,6 @@ module Scrabble =
 
         let rec aux (st: State.state) =
 
-            // Print.printLegalTiles st.legalTiles
-
             let mutable tilesToChange : (uint32 * uint32) list = []
             let mutable isTimedOut = false
             //Our turn check
@@ -544,14 +503,12 @@ module Scrabble =
 
                 // Give turn to next player
                 let updatedPlayersState = PlayersState.next st.playersState
-                let updatedLegalTiles = State.updateLegalTiles st ms
 
                 let st' =
                     { st with
                           hand = updatedHand
                           boardState = updatedBoardState
-                          playersState = updatedPlayersState
-                          legalTiles = updatedLegalTiles }
+                          playersState = updatedPlayersState }
 
                 aux st'
             | RCM (CMPlayed (_pid, ms, _points)) ->
@@ -560,13 +517,11 @@ module Scrabble =
                 // Add played tiles to boardState
                 let updatedBoardState = State.updateBoardState st.boardState ms
 
-                let updatedLegalTiles = State.updateLegalTiles st ms
 
                 let st' =
                     { st with
                           boardState = updatedBoardState
-                          playersState = PlayersState.next st.playersState
-                          legalTiles = updatedLegalTiles }
+                          playersState = PlayersState.next st.playersState }
 
                 aux st'
 
