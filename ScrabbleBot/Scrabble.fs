@@ -110,6 +110,7 @@ module State =
                             if b then
                                 foldGenLefts w newHand dict2 (fst acc, w :: (snd acc))
                             else
+                                // printfn "%A" (idListToString s (List.rev w))
                                 foldGenLefts w newHand dict2 ((w, (dict3, newHand)) :: (fst acc), snd acc)
                         | None ->
                             // printfn "Pword: %A" w
@@ -423,22 +424,19 @@ module Scrabble =
                             |> Seq.map
                                 (fun t ->
                                     async {
-                                        let steppedDict =
-                                            Dictionary.step (t |> snd |> snd |> fst) st.dict
-
-                                        if steppedDict.IsNone then
-                                            return []
-                                        else
+                                        match Dictionary.step (t |> snd |> snd |> fst) st.dict with
+                                        | Some(_,d) ->
                                             let words =
-                                                State.generateWords st [ t |> snd |> fst ] (snd steppedDict.Value)
+                                                State.generateWords st [ t |> snd |> fst ] d
 
                                             if words.Length = 0 then
                                                 return []
                                             else
-                                                match (State.generateWords st [ t |> snd |> fst ] (snd steppedDict.Value)) with
+                                                match (State.generateWords st [ t |> snd |> fst ] d) with
                                                 | [] -> return []
                                                 | x ->
                                                     return checkMoves st t x
+                                        | None -> return []
                                     }
                                 )
 
