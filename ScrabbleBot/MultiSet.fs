@@ -97,6 +97,8 @@ module internal MultiSet
             | x::xs -> collect xs (acc @ (addn (fst x) (snd x)))
         collect (Map.toList m) []
 
+    let toTupleList (S (m)) = Map.toList m
+
     let union (S (m)) (S (_m)) =
         let rec go a b acc =
             match (a, b) with

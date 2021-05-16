@@ -4,7 +4,7 @@
     <TargetFramework>net5.0</TargetFramework>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Company>IT University of Copenhagen</Company>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <PackageId>JScrapelt</PackageId>
     <AssemblyName>JScrapelt</AssemblyName>
     <Authors>Anonymous</Authors>
@@ -13,6 +13,13 @@
   </PropertyGroup>
   <ItemGroup>
     <None Remove="C:\Users\Jesper\.nuget\packages\fsharp.core\5.0.1\contentFiles\any\netstandard2.0\FSharp.Core.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FParsec" Version="1.1.1" />
+    <PackageReference Include="ScrabbleServer" Version="1.0.11" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="5.0.1" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="PlayersState.fsi" />
@@ -30,12 +37,6 @@
     <Compile Include="Parser.fs" />
     <Compile Include="Scrabble.fsi" />
     <Compile Include="Scrabble.fs" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="FParsec" Version="1.1.1" />
-    <PackageReference Include="ScrabbleServer" Version="1.0.7" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="5.0.1" />
+    <Compile Include="Program.fs" />
   </ItemGroup>
 </Project>

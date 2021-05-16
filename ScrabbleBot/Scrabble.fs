@@ -33,11 +33,6 @@ module RegEx =
                 | _ -> failwith "Failed (should never happen)")
         |> Seq.toList
 
-module Print =
-
-    let printHand pieces hand =
-        hand
-        |> MultiSet.fold (fun _ x i -> forcePrint (sprintf "%d -> (%A, %d)\n" x (Map.find x pieces) i)) ()
 
 module State =
     // Make sure to keep your state localised in this module. It makes your life a whole lot easier.
@@ -49,11 +44,12 @@ module State =
 
     type state =
         { board: Parser.board
-          boardState: (coord * (uint32 * (char * int))) list
+          boardState: Map<coord, (uint32 * (char * int))>
           playersState: PlayersState
           dict: Dictionary.Dict
           playerNumber: uint32
-          hand: MultiSet.MultiSet<uint32> }
+          hand: MultiSet.MultiSet<uint32>
+          tiles: Map<uint32, tile> }
 
     let updateHand
         (toRemove: (uint32 * uint32) list)
@@ -64,48 +60,415 @@ module State =
          |> List.fold (fun hand (id, count) -> MultiSet.add id count hand))
             toAdd
 
-    let mkState b d pn pa pt h =
+    let lookupTile s id =
+        match s.tiles.TryFind id with
+        | Some (t) -> t.MinimumElement
+        // TODO: Handle wildcard
+        | None -> failwith "this should not happen"
+
+    // let generateWords (c: coord) (s: state) (dir : bool) =
+
+    let idListToString s ulist =
+        List.fold (fun acc next -> acc + (next |> (lookupTile s) |> fst |> string)) "" ulist
+
+
+    // Look at the rest of hand. Map each letter from hand to a dictionary Lookup
+
+    let lookup (s: string) (gdg: Dictionary.Dict) : bool =
+        let rec aux (cs: char list) (gd: Dictionary.Dict) =
+            match Dictionary.step cs.Head gd with
+            | None -> false
+            | Some (b, d) when cs.Length = 1 ->
+                match Dictionary.reverse d with
+                | None -> false
+                | Some (b, d) -> b
+            | Some (b, d) -> aux cs.Tail d
+
+        aux (List.rev (Seq.toList s)) gdg
+
+    let rec filterSingle pred list =
+        match list with
+        | x :: xs when pred x -> xs
+        | x :: xs -> x :: (filterSingle pred xs)
+        | [] -> []
+
+    let generateWords s partialWord dict0 =
+
+        let listOfTiles = MultiSet.toList s.hand
+
+        let rec foldGenLefts (partialWord: uint32 list) (hand: uint32 list) dict1 acc =
+            List.fold
+                (fun acc t ->
+                    match Dictionary.step (t |> (lookupTile s) |> fst) dict1 with
+                    | Some (_, dict2) ->
+                        let w = partialWord @ [ t ]
+                        let newHand = filterSingle (fun x -> x = t) hand
+
+                        match Dictionary.reverse dict2 with
+                        | Some (b, dict3) ->
+                            // printfn "Found: %A" w
+                            if b then
+                                foldGenLefts w newHand dict2 (fst acc, w :: (snd acc))
+                            else
+                                // printfn "%A" (idListToString s (List.rev w))
+                                foldGenLefts w newHand dict2 ((w, (dict3, newHand)) :: (fst acc), snd acc)
+                        | None ->
+                            // printfn "Pword: %A" w
+                            foldGenLefts w newHand dict2 acc
+                    | None -> acc)
+                acc
+                hand
+
+        let lefts =
+            foldGenLefts partialWord listOfTiles dict0 ([], [])
+
+        let completeLefts =
+            List.map (fun x -> (x, List.empty<uint32>)) (snd lefts)
+
+        let partialLefts = fst lefts
+
+        let rec genWord ((dict1, hand): (Dictionary.Dict * uint32 list)) (acc: uint32 list) : uint32 list =
+            List.fold
+                (fun acc t ->
+                    let newHand = filterSingle (fun x -> x = t) hand
+
+                    match Dictionary.step (t |> (lookupTile s) |> fst) dict1 with
+                    | Some (b, dict2) ->
+                        if b then
+                            // Complete word
+                            t :: acc
+                        else
+                            // Partial word
+                            genWord (dict2, newHand) (t :: acc)
+                    | None -> [])
+                acc
+                hand
+
+        let wholeWords =
+            List.fold
+                (fun acc l ->
+                    match (genWord (snd l) []) with
+                    | [] -> acc
+                    | x -> (fst l, x) :: acc)
+                []
+                partialLefts
+
+        wholeWords @ completeLefts
+
+
+    let generateMove s ((l, r): uint32 list * uint32 list) (x, y) isRight =
+        let lmoves =
+            List.mapi
+                (fun i c ->
+                    let (char, point) = lookupTile s c
+
+                    let coord =
+                        if isRight then
+                            (x - (i + 1), y)
+                        else
+                            (x, y - (i + 1))
+
+                    (coord, (c, (char, point))))
+                l
+
+        let rmoves =
+            List.mapi
+                (fun i c ->
+                    let (char, point) = lookupTile s c
+
+                    let coord =
+                        if isRight then
+                            (x + (i + 1), y)
+                        else
+                            (x, y - (i - 1))
+
+                    (coord, (c, (char, point))))
+                r
+
+        lmoves @ rmoves
+
+    let generateFirstMove s ((l, r): uint32 list * uint32 list) =
+        let lmoves =
+            List.mapi
+                (fun i c ->
+                    let (char, point) = lookupTile s c
+
+                    ((0 - i, 0), (c, (char, point))))
+                l
+
+        let rmoves =
+            List.mapi
+                (fun i c ->
+                    let (char, point) = lookupTile s c
+                    ((0 + (i + 1), 0), (c, (char, point))))
+                r
+
+        lmoves @ rmoves
+
+
+    let updateBoardState (prev: Map<coord, (uint32 * (char * int))>) tiles =
+        List.fold (fun acc next -> Map.add (fst next) (snd next) acc) prev tiles
+
+    let mkState b d pn pa pt h t =
         { board = b
-          boardState = List.empty<coord * (uint32 * (char * int))>
+          boardState = Map.empty<coord, (uint32 * (char * int))>
           playersState = create pt pa
           dict = d
           playerNumber = pn
-          hand = h }
+          hand = h
+          tiles = t }
 
     let board st = st.board
     let dict st = st.dict
     let playerNumber st = st.playerNumber
     let hand st = st.hand
 
+module Print =
+
+    let printHand pieces hand =
+        hand
+        |> MultiSet.fold (fun _ x i -> forcePrint (sprintf "%d -> (%A, %d)\n" x (Map.find x pieces) i)) ()
+
 module Scrabble =
 
-    let playGame cstream pieces (st: State.state) =
+    let keepers =
+        [ 'E'
+          'A'
+          'R'
+          'I'
+          'O'
+          'T'
+          'N'
+          'S'
+          'L' ]
 
+    let findTilesToChange (s: State.state) =
+        let rec aux h acc =
+            match h with
+            | [] -> acc
+            | x :: xs ->
+                if (snd x > 2u) then
+                    aux xs ((fst x) :: acc)
+                else
+                    aux xs acc
+
+        let res = aux (MultiSet.toTupleList s.hand) []
+
+        if res.Length < 3 then
+            MultiSet.toList s.hand
+        else
+            res
+
+
+    let longestWord (l: ('a list * 'a list) list) =
+        let rec aux acc ls =
+            match ls with
+            | [] -> acc
+            | x :: xs ->
+                if ((fst x) @ (snd x)) > ((fst acc) @ (snd acc)) then
+                    aux x xs
+                else
+                    aux acc xs
+
+        aux l.Head l
+
+    let wordPoints s w =
+        let rec aux ls acc =
+            match ls with
+            | [] -> acc
+            | x :: xs -> aux xs (acc + snd (State.lookupTile s x))
+
+        aux ((fst w) @ (snd w)) 0
+
+    let mostPoints s (l: (uint32 list * uint32 list) list) =
+        let rec aux acc ls =
+            match ls with
+            | [] -> acc
+            | x :: xs ->
+                if (wordPoints s x) > (wordPoints s acc) then
+                    aux x xs
+                else
+                    aux acc xs
+
+        aux l.Head l
+
+    let checkMove (s: State.state) (anchor: coord) (word: (uint32 list * uint32 list)) isHorizontal =
+        let isEmptySquare sqr =
+            match s.board.squares sqr with
+            | Some (_) ->
+                match s.boardState.TryFind sqr with
+                | None -> true
+                | Some (_) -> false
+            | None -> false
+
+        // Dir:
+        //  1: Right
+        // -1: Left
+        let rec checkDir amt anchor dir =
+            if amt = 0 then
+                true
+            else
+                let c1 =
+                    if isHorizontal then
+                        ((fst anchor) + dir * amt, snd anchor + 1)
+                    else
+                        (fst anchor + 1, (snd anchor) + dir * amt)
+
+                let c =
+                    if isHorizontal then
+                        ((fst anchor) + dir * amt, snd anchor)
+                    else
+                        (fst anchor, (snd anchor) + dir * amt)
+
+                let c3 =
+                    if isHorizontal then
+                        ((fst anchor) + dir * amt, snd anchor - 1)
+                    else
+                        (fst anchor - 1, (snd anchor) + dir * amt)
+
+                match isEmptySquare c1
+                      && isEmptySquare c
+                      && isEmptySquare c3 with
+                | true -> checkDir (amt - 1) anchor dir
+                | false -> false
+
+        let checkStart =
+            isEmptySquare (
+                if isHorizontal then
+                    ((fst anchor) - List.length (fst word), snd anchor)
+                else
+                    (fst anchor, (snd anchor) - List.length (fst word))
+            )
+
+        let checkEnd =
+            isEmptySquare (
+                if isHorizontal then
+                    ((fst anchor) + 1 + List.length (snd word), snd anchor)
+                else
+                    (fst anchor, (snd anchor) + 1 + List.length (snd word))
+            )
+
+        (checkDir (fst word).Length anchor -1)
+        && (checkDir (snd word).Length anchor 1)
+        && checkStart
+        && checkEnd
+
+    let checkMoves st t x =
+        List.fold
+            (fun acc m ->
+                if checkMove st (fst t) m false then
+                    ((fst t, false), m) :: acc
+                elif checkMove st (fst t) m true then
+                    ((fst t, true), m) :: acc
+                else
+                    acc)
+            []
+            x
+
+
+    let playGame cstream pieces (st: State.state) =
+        let gameStopWatch = System.Diagnostics.Stopwatch.StartNew()
 
         let rec aux (st: State.state) =
 
-            let tilesToChange : (uint32 * uint32) list = []
+            let mutable tilesToChange : (uint32 * uint32) list = []
+            let mutable isTimedOut = false
             //Our turn check
             if (st.playerNumber = PlayersState.current st.playersState) then
-                // Generate and send a move, then recv result of the move
-                printfn "%i's turn" st.playerNumber
 
-                forcePrint
-                    "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
+                forcePrint (
+                    "Player: "
+                    + string (PlayersState.current st.playersState)
+                    + "\n"
+                )
 
-                let input = System.Console.ReadLine()
-                let move = RegEx.parseMove input
+                Print.printHand pieces (State.hand st)
+                // forcePrint
+                //     "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
 
-                debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
-                send cstream (SMPlay move)
+                forcePrint "Generating move... \n"
 
-            // recv result of current turns move
-            printfn "not %i's turn" st.playerNumber
+                let stopWatch = System.Diagnostics.Stopwatch.StartNew()
+                let move =
+                    if st.boardState.IsEmpty then
+                        let possibleWords =
+                            List.sortByDescending (fun w -> wordPoints st w) (State.generateWords st [] st.dict)
+                            |> List.filter
+                                (fun m ->
+                                    (let wordLength = (fst m).Length + (snd m).Length
+                                     let offset = wordLength / 2
+                                     let anchor = (-offset, 0)
+                                     checkMove st anchor m true))
 
+                        let words =
+                            List.map
+                                (fun (l, r) -> ($"{State.idListToString st (List.rev l)}_{State.idListToString st r}"))
+                                possibleWords
 
-            Print.printHand pieces (State.hand st)
+                        forcePrint (
+                            "WORDS: "
+                            + (string words.Length)
+                            + " "
+                            + (string words)
+                            + "\n"
+                        )
 
-            // remove the force print when you move on from manual input (or when you have learnt the format)
+                        if possibleWords.IsEmpty then
+                            None
+                        else
+                            let word = possibleWords.Head
+                            Some(State.generateFirstMove st word)
+                    else
+                        let moves =
+                            (Map.toList st.boardState)
+                            |> Seq.map
+                                (fun t ->
+                                    async {
+                                        match Dictionary.step (t |> snd |> snd |> fst) st.dict with
+                                        | Some(_,d) ->
+                                            let words =
+                                                State.generateWords st [ t |> snd |> fst ] d
+
+                                            if words.Length = 0 then
+                                                return []
+                                            else
+                                                match (State.generateWords st [ t |> snd |> fst ] d) with
+                                                | [] -> return []
+                                                | x ->
+                                                    return checkMoves st t x
+                                        | None -> return []
+                                    }
+                                )
+
+                            // |> Async.Sequential // Swap this and below to test parallelism
+                            |> Async.Parallel
+                            |> Async.RunSynchronously
+                            |> Seq.fold (@) []
+                            |> List.sortByDescending (fun w -> wordPoints st (snd w))
+
+                        if moves.Length = 0 then
+                            None
+                        else
+                            let wordInfo = moves.Head
+                            let word = snd wordInfo
+                            Some(State.generateMove st ((fst word).Tail, snd word) (fst (fst wordInfo)) (snd (fst wordInfo)))
+
+                stopWatch.Stop()
+                forcePrint $"Time: {string (stopWatch.Elapsed.TotalMilliseconds / 1000.0 |> round)} seconds \n"
+
+                if isTimedOut then forcePrint "Timed out \n"
+                else
+                    match move with
+                    | Some(m) ->
+                        forcePrint $"MOVE: {(string move) }\n"
+                        send cstream (SMPlay(m))
+                    | None ->
+                        forcePrint "No moves available, changing hand \n"
+                        let tcc = st |> findTilesToChange
+                        tilesToChange <- tcc |> MultiSet.ofList |> MultiSet.toTupleList
+                        send cstream (SMChange(tcc))
+
+            // debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
 
             let msg = recv cstream
             debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) msg) // keep the debug lines. They are useful.
@@ -115,7 +478,7 @@ module Scrabble =
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
 
                 // Add played tiles to boardState
-                let updatedBoardState = st.boardState @ ms
+                let updatedBoardState = State.updateBoardState st.boardState ms
 
                 let mappedMs =
                     List.map (fun (_, (id, _tile)) -> (id, 1u)) ms
@@ -138,7 +501,8 @@ module Scrabble =
                 (* Successful play by other player. Update your state *)
 
                 // Add played tiles to boardState
-                let updatedBoardState = st.boardState @ ms
+                let updatedBoardState = State.updateBoardState st.boardState ms
+
 
                 let st' =
                     { st with
@@ -146,16 +510,12 @@ module Scrabble =
                           playersState = PlayersState.next st.playersState }
 
                 aux st'
-            | RCM (CMPlayFailed (_pid, _ms)) ->
-                (* Failed play. Update your state *)
-                let st' = st // TODO: This state needs to be updated
-
-                aux st'
 
             | RCM (CMChangeSuccess (newTiles)) ->
                 let st' =
                     { st with
-                          hand = (State.updateHand tilesToChange newTiles st.hand) }
+                          hand = (State.updateHand tilesToChange newTiles st.hand)
+                          playersState = PlayersState.next st.playersState }
 
                 aux st'
 
@@ -168,14 +528,22 @@ module Scrabble =
 
             | RCM (CMPlayFailed (_))
             | RCM (CMChange (_))
-            | RCM (CMPassed (_))
-            | RCM (CMTimeout (_)) ->
+            | RCM (CMPassed (_)) ->
                 let st' =
                     { st with
                           playersState = PlayersState.next st.playersState }
 
                 aux st'
 
+            | RCM (CMTimeout (id)) ->
+                if st.playerNumber = id then
+                    ignore (isTimedOut <- true)
+
+                let st' =
+                    { st with
+                          playersState = PlayersState.next st.playersState }
+
+                aux st'
 
             | RCM (CMGameOver _) -> ()
             | RGPE err ->
@@ -184,6 +552,9 @@ module Scrabble =
 
 
         aux st
+
+        gameStopWatch.Stop()
+        forcePrint $"Total Game Time: {string (gameStopWatch.Elapsed.TotalMilliseconds / 1000.0 |> round)} seconds \n"
 
     let startGame
         (boardP: boardProg)
@@ -218,4 +589,4 @@ module Scrabble =
         let handSet =
             List.fold (fun acc (x, k) -> MultiSet.add x k acc) MultiSet.empty hand
 
-        fun () -> playGame cstream tiles (State.mkState board dict playerNumber numPlayers playerTurn handSet)
+        fun () -> playGame cstream tiles (State.mkState board dict playerNumber numPlayers playerTurn handSet tiles)

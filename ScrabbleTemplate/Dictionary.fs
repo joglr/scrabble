@@ -1,108 +1,52 @@
 module internal Dictionary
-    type Node =
-        | Char of (char * bool)
-        | Hook of (bool)
-
     type Dict =
-        | D of Map<Node, Dict>
-
+        | D of Map<char, (bool * Dict)>
 
     //Helpers
     let extract (D (m)) = m
+    //Helpers
 
-    let getMap c m =
-        let l = Map.toList m
-        let rec go c l =
-            match l with
-            | [] -> None
-            | x::xs -> if (fst (fst x)) = c then Some(extract(snd x)) else go c xs
-        go c l
-
-    let getTruth c m =
-        let l = Map.toList m
-        let rec go c l =
-            match l with
-            | [] -> None
-            | x::xs -> if (fst (fst x)) = c then Some(snd (fst x)) else go c xs
-        go c l
-
-    let getTruthAndMap c m =
-        let l = Map.toList m
-        let rec go n l =
-            match l with
-            | [] -> None
-            | x::xs ->
-                match (fst x) with
-                | Char (c, b) -> if (c = n) then Some(b, extract(snd x)) else go n xs
-                | Hook (b) -> Some(b, extract(snd x))
-        go c l
-
-
-    // Helpers
-
-    let empty () = D (Map.empty<Node, Dict>)
-
-    // let insert (x : string) (D (m)) = empty()
+    let empty () = D (Map.empty<char, (bool * Dict)>)
 
     let innersert (x : string) (D (m)) =
-        let emt = Map.empty<Node, Dict>
-        let rec go w (m : Map<(Node), Dict>) =
-            match w with
-            | [] -> m
-            | [x] when x = '#' ->
-                let truthAndMap = getTruthAndMap x m
-                if truthAndMap.IsSome
-                then m.Remove(Char(x, (fst truthAndMap.Value))).Add(Hook(true), D (snd truthAndMap.Value))
-                else m.Add(Hook(true), empty ())
-            | x::xs when x = '#' ->
-                let truthAndMap = getTruthAndMap x m
-                if truthAndMap.IsSome
-                then m.Add(Hook(false), D (go xs (snd truthAndMap.Value)))
-                else m.Add(Hook(false), D (go xs emt))
-            | [x] ->
-                let truthAndMap = getTruthAndMap x m
-                if truthAndMap.IsSome
-                then m.Remove(Char(x, (fst truthAndMap.Value))).Add(Char((x, true)), D (snd truthAndMap.Value))
-                else m.Add(Char((x, true)), (empty ()))
-            | x::xs ->
-                let truthAndMap = getTruthAndMap x m
-                if truthAndMap.IsSome
-                then m.Add(Char(x, (fst truthAndMap.Value)), D (go xs (snd truthAndMap.Value)))
-                else m.Add(Char(x, false), D (go xs emt))
+        let rec go word (map : Map<char, (bool * Dict)>) =
+            match word with
+            | [] -> map
+            | x::xs->
+                let b = word.Length = 1
+                match Map.tryFind x map with 
+                | Some(b,d) -> Map.add x (b, D (go xs (extract d))) map
+                | None -> Map.add x (b, D (go xs Map.empty<char, (bool * Dict)>)) map
         D (go (Seq.toList x) m)
 
-    let insert (s: string) (d : Dict) =
+    let insert (s : string) (d : Dict) =
         let rec aux acc reversed rest =
             match rest with
             | x::xs ->
                 let reversed' = ([x] @ reversed)
-                let str = ((new System.String (reversed' |> List.toArray)) + "#" + (new System.String (xs |> List.toArray)))
+                let str = ((new System.String (reversed' |> List.toArray)) + "<" + (new System.String (xs |> List.toArray)))
+                // printfn "%A" str
                 let result = innersert str acc
                 aux result reversed' xs
             | [] -> acc
 
         aux (d) [] (Seq.toList s)
 
+    let step c (D (m)) =
+        Map.tryFind c m
 
-
-    let step (ch : char) (D (m)) = 
-        let rec aux c l =
-            match l with
-            | [] -> None
-            | x::xs -> 
-                match (fst x) with
-                | Char(c, b) -> if (c = ch) then Some(b, snd x) else aux c xs
-                | Hook(b) -> aux c xs
-        
-        aux ch (Map.toList m)
-        
     let reverse (D (m)) =
-        let rec aux l =
-            match l with
-            | [] -> None
-            | x::xs -> 
-                match (fst x) with
-                | Char(_, _) -> aux xs
-                | Hook(b) -> Some(b, snd x)
-        
-        aux (Map.toList m)
+        Map.tryFind '<' m
+
+    let lookup (s: string) (d: Dict) : bool =
+        let rec aux (cs: char list) (gd: Dict) =
+            match step cs.Head gd with
+            | None -> false
+            | Some (b, d) when cs.Length = 1 ->
+                match reverse d with
+                | None -> false
+                | Some (b, d) -> b
+            | Some (b, d) -> aux cs.Tail d
+
+        aux (List.rev (Seq.toList s)) d
+
